@@ -73,6 +73,8 @@ class YAMLParser extends BaseParser {
             case 'hysteria2':
             case 'hy2':
                 return this.parseHysteria2(proxy);
+            case 'anytls':
+                return this.parseAnyTLS(proxy);
             default:
                 console.warn(`不支持的代理类型: ${type}`);
                 return null;
@@ -266,6 +268,27 @@ class YAMLParser extends BaseParser {
     }
 
     /**
+     * 解析 AnyTLS 节点
+     * @param {object} proxy - 代理配置
+     * @returns {object} 标准化节点对象
+     */
+    parseAnyTLS(proxy) {
+        const node = this.createNode();
+        node.type = 'anytls';
+        node.name = proxy.name || 'AnyTLS节点';
+        node.server = proxy.server;
+        node.port = parseInt(proxy.port, 10);
+        node.password = proxy.password || '';
+        node.sni = proxy.sni || proxy.servername || proxy.server;
+        node.skip_cert_verify = proxy['skip-cert-verify'] === true;
+        node.udp = proxy.udp !== false;
+        if (proxy.alpn) {
+            node.alpn = Array.isArray(proxy.alpn) ? proxy.alpn : [proxy.alpn];
+        }
+        return node;
+    }
+
+    /**
      * 验证节点数据
      * @param {object} node - 节点对象
      * @returns {boolean} 是否有效
@@ -291,6 +314,8 @@ class YAMLParser extends BaseParser {
                 return !!node.password;
             case 'hysteria2':
                 return true; // password is optional for hysteria2
+            case 'anytls':
+                return !!node.password;
             default:
                 return false;
         }

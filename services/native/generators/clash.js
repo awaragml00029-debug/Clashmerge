@@ -180,6 +180,14 @@ class ClashGenerator extends BaseGenerator {
             proxy["obfs-password"] = node.hysteria2_opts.obfs_password;
           }
         }
+      } else if (node.type === "anytls") {
+        proxy.type = "anytls";
+        proxy.password = node.password;
+        proxy.sni = node.sni || node.server;
+        proxy["skip-cert-verify"] = node.skip_cert_verify || false;
+        if (Array.isArray(node.alpn) && node.alpn.length > 0) {
+          proxy.alpn = node.alpn;
+        }
       } else {
         return null;
       }

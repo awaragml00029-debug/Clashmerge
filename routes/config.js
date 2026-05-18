@@ -52,6 +52,10 @@ function normalizeConfigPayload(config) {
         remoteConverterUrl: "",
     };
 
+    normalized.mihomoApiUrl = String(config.mihomoApiUrl || "").trim();
+    normalized.mihomoSecret = String(config.mihomoSecret || "").trim();
+    normalized.mihomoTestUrl = String(config.mihomoTestUrl || "").trim();
+
     if (Object.prototype.hasOwnProperty.call(config, "fixedInbounds")) {
         normalized.fixedInbounds = normalizeFixedInbounds(config.fixedInbounds);
     }

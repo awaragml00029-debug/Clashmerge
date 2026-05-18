@@ -1057,6 +1057,23 @@ textarea {
     font-size: 0.84rem;
 }
 
+.fixed-healthy-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(47, 143, 99, 0.12);
+    color: var(--success);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.fixed-healthy-toggle input {
+    width: auto;
+}
+
 .inline-checkbox-group label {
     display: flex;
     align-items: center;
@@ -1103,6 +1120,56 @@ textarea {
 
 .fixed-inbound-toggle input {
     width: auto;
+}
+
+.fixed-proxy-field {
+    display: grid;
+    gap: 6px;
+}
+
+.fixed-node-health {
+    width: fit-content;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.fixed-node-health.alive {
+    background: rgba(47, 143, 99, 0.14);
+    color: var(--success);
+}
+
+.fixed-node-health.dead {
+    background: rgba(204, 75, 55, 0.12);
+    color: var(--danger);
+}
+
+.fixed-node-health.unknown {
+    background: rgba(122, 102, 87, 0.12);
+    color: var(--muted);
+}
+
+.fixed-link-output {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(20, 122, 108, 0.16);
+    background: rgba(20, 122, 108, 0.06);
+}
+
+.fixed-link-output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.fixed-link-output textarea {
+    min-height: 96px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
 }
 
 .code-editor-ace {

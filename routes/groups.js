@@ -1,6 +1,7 @@
 const express = require("express");
 const NativeConverter = require("../services/native");
 const { ClashGenerator } = require("../services/native/generators");
+const MihomoHealthService = require("../services/mihomo-health");
 const router = express.Router();
 
 function expandSubscriptionUrls(subscriptions) {
@@ -19,6 +20,27 @@ function expandSubscriptionUrls(subscriptions) {
     }
   }
   return urls;
+}
+
+async function getGroupNodeOptions(db, groupId) {
+  const subscriptions = await db.getActiveSubscriptionsByGroup(groupId);
+  const urls = expandSubscriptionUrls(subscriptions);
+
+  if (urls.length === 0) {
+    return { nodes: [], failures: [], stats: { total: 0, byType: {} } };
+  }
+
+  const converter = new NativeConverter();
+  const result = await converter.listNodes(urls);
+  const generator = new ClashGenerator();
+  const nodes = generator.generateProxies(result.nodes).map((proxy) => ({
+    name: proxy.name || "",
+    type: proxy.type || "",
+    server: proxy.server || "",
+    port: proxy.port || "",
+  }));
+
+  return { nodes, failures: result.failures, stats: result.stats };
 }
 
 /**
@@ -118,27 +140,49 @@ function createGroupRoutes(db) {
   router.get("/api/groups/:id/nodes", async (req, res) => {
     try {
       const { id } = req.params;
-      const subscriptions = await db.getActiveSubscriptionsByGroup(id);
-      const urls = expandSubscriptionUrls(subscriptions);
-
-      if (urls.length === 0) {
-        return res.json({ nodes: [], failures: [], stats: { total: 0, byType: {} } });
-      }
-
-      const converter = new NativeConverter();
-      const result = await converter.listNodes(urls);
-      const generator = new ClashGenerator();
-      const nodes = generator.generateProxies(result.nodes).map((proxy) => ({
-        name: proxy.name || "",
-        type: proxy.type || "",
-        server: proxy.server || "",
-        port: proxy.port || "",
-      }));
-
-      res.json({ nodes, failures: result.failures, stats: result.stats });
+      const result = await getGroupNodeOptions(db, id);
+      const config = await db.getConfig();
+      const health = new MihomoHealthService({
+        apiUrl: config.mihomoApiUrl,
+        secret: config.mihomoSecret,
+        testUrl: config.mihomoTestUrl,
+      });
+      res.json({
+        ...result,
+        nodes: health.attachCachedHealth(result.nodes),
+      });
     } catch (error) {
       console.error("获取固定入口节点候选失败:", error);
       res.status(500).json({ error: "获取固定入口节点候选失败" });
+    }
+  });
+
+  // 使用本机 Mihomo 测速当前分组节点
+  router.post("/api/groups/:id/nodes/health", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await getGroupNodeOptions(db, id);
+      const requestedNames = Array.isArray(req.body?.names)
+        ? new Set(req.body.names.map((name) => String(name || "").trim()).filter(Boolean))
+        : null;
+      const nodesToTest = requestedNames
+        ? result.nodes.filter((node) => requestedNames.has(node.name))
+        : result.nodes;
+      const config = await db.getConfig();
+      const health = new MihomoHealthService({
+        apiUrl: config.mihomoApiUrl,
+        secret: config.mihomoSecret,
+        testUrl: config.mihomoTestUrl,
+      });
+      const healthResults = await health.testNodes(nodesToTest.map((node) => node.name));
+      res.json({
+        ...result,
+        nodes: health.attachCachedHealth(result.nodes),
+        health: healthResults,
+      });
+    } catch (error) {
+      console.error("Mihomo 节点测速失败:", error);
+      res.status(500).json({ error: error.message || "Mihomo 节点测速失败" });
     }
   });
 

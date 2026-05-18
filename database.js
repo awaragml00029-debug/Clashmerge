@@ -26,6 +26,9 @@ class Database {
         remoteConverterUrl: "",
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
+        mihomoApiUrl: "",
+        mihomoSecret: "",
+        mihomoTestUrl: "",
         fixedInbounds: [],
       },
     };
@@ -73,6 +76,9 @@ class Database {
       remoteConverterUrl: "",
       remoteConverterProtocol: "https",
       defaultPreviewFormat: "ss",
+      mihomoApiUrl: "",
+      mihomoSecret: "",
+      mihomoTestUrl: "",
       fixedInbounds: [],
     };
 
@@ -240,6 +246,9 @@ class Database {
         remoteConverterUrl: "",
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
+        mihomoApiUrl: "",
+        mihomoSecret: "",
+        mihomoTestUrl: "",
         fixedInbounds: [],
       },
     };
@@ -472,6 +481,10 @@ class Database {
           remoteConverterUrl: "",
           remoteConverterProtocol: "https",
           defaultPreviewFormat: "ss",
+          mihomoApiUrl: "",
+          mihomoSecret: "",
+          mihomoTestUrl: "",
+          fixedInbounds: [],
         };
 
         if (this.saveData()) {

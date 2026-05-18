@@ -26,7 +26,7 @@ class NodeMerger {
         // 排序：按类型分组，同类型按名称排序
         allNodes.sort((a, b) => {
             if (a.type !== b.type) {
-                const typeOrder = { vmess: 1, vless: 2, trojan: 3, ss: 4 };
+                const typeOrder = { vmess: 1, vless: 2, trojan: 3, ss: 4, hysteria2: 5, anytls: 6 };
                 return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99);
             }
             return (a.name || '').localeCompare(b.name || '');

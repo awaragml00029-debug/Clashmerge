@@ -1204,6 +1204,9 @@ class ConfigManager {
     document.getElementById("modal-defaultPreviewFormat").value =
       config.defaultPreviewFormat || "ss";
     CustomSelect.syncById("modal-defaultPreviewFormat");
+    document.getElementById("modal-mihomoApiUrl").value = config.mihomoApiUrl || "";
+    document.getElementById("modal-mihomoSecret").value = config.mihomoSecret || "";
+    document.getElementById("modal-mihomoTestUrl").value = config.mihomoTestUrl || "";
     document.getElementById("modal-subUpdateTime").value = config.subUpdateTime || 6;
     document.getElementById("modal-total").value = config.total ?? 0;
     document.getElementById("modal-botToken").value = config.botToken || "";
@@ -1224,14 +1227,17 @@ class ConfigManager {
     if (!container) return;
 
     const optionsId = "fixedInboundProxyOptions";
+    const healthSummary = this.getNodeHealthSummary();
     const optionHtml = this.nodeOptions
       .map((node) => {
-        const label = [node.type, node.server, node.port].filter(Boolean).join(" · ");
+        const label = [this.formatNodeHealth(node.health), node.type, node.server, node.port]
+          .filter(Boolean)
+          .join(" · ");
         return `<option value="${escapeHtml(node.name)}" label="${escapeHtml(label)}"></option>`;
       })
       .join("");
     const helperText = groupManager.currentGroup
-      ? `当前分组解析到 ${this.nodeOptions.length} 个节点，可输入搜索并选择。`
+      ? `当前分组解析到 ${this.nodeOptions.length} 个节点，${healthSummary}。`
       : "请先选择左侧分组，再打开系统配置以加载节点候选。";
 
     if (!this.fixedInbounds.length) {
@@ -1239,7 +1245,10 @@ class ConfigManager {
       return;
     }
 
-    container.innerHTML = `<div class="fixed-inbounds-hint">${helperText}</div><datalist id="${optionsId}">${optionHtml}</datalist>` + this.fixedInbounds.map((inbound, index) => `
+    container.innerHTML = `<div class="fixed-inbounds-hint">${helperText}</div><datalist id="${optionsId}">${optionHtml}</datalist>` + this.fixedInbounds.map((inbound, index) => {
+      const proxyName = inbound.proxy || inbound.proxyName || "";
+      const matchedNode = this.nodeOptions.find((node) => node.name === proxyName);
+      return `
       <div class="fixed-inbound-row">
         <label class="fixed-inbound-toggle">
           <input type="checkbox" data-fixed-field="enabled" data-index="${index}" ${inbound.enabled === false ? "" : "checked"} />
@@ -1250,17 +1259,113 @@ class ConfigManager {
           ${["mixed", "http", "socks"].map((type) => `<option value="${type}" ${inbound.type === type ? "selected" : ""}>${type}</option>`).join("")}
         </select>
         <input type="text" data-fixed-field="listen" data-index="${index}" value="${escapeHtml(inbound.listen || "127.0.0.1")}" placeholder="监听地址" />
-        <input type="text" list="fixedInboundProxyOptions" data-fixed-field="proxy" data-index="${index}" value="${escapeHtml(inbound.proxy || inbound.proxyName || "")}" placeholder="输入或选择节点名" />
+        <div class="fixed-proxy-field">
+          <input type="text" list="fixedInboundProxyOptions" data-fixed-field="proxy" data-index="${index}" value="${escapeHtml(proxyName)}" placeholder="输入或选择节点名" />
+          ${this.renderNodeHealthBadge(matchedNode?.health)}
+        </div>
         <input type="text" data-fixed-field="username" data-index="${index}" value="${escapeHtml(inbound.username || "")}" placeholder="用户名" />
         <input type="text" data-fixed-field="password" data-index="${index}" value="${escapeHtml(inbound.password || "")}" placeholder="密码" />
         <button type="button" class="btn btn-danger btn-sm" onclick="configManager.removeFixedInboundRow(${index})">删除</button>
-      </div>
-    `).join("");
+      </div>`;
+    }).join("") + this.renderFixedLinkOutput();
 
     container.querySelectorAll("[data-fixed-field]").forEach((element) => {
       element.addEventListener("input", () => this.updateFixedInboundFromInput(element));
       element.addEventListener("change", () => this.updateFixedInboundFromInput(element));
     });
+  }
+
+  getNodeHealthSummary() {
+    const checked = this.nodeOptions.filter((node) => node.health).length;
+    const alive = this.nodeOptions.filter((node) => node.health?.alive).length;
+    const failed = checked - alive;
+    if (checked === 0) {
+      return "尚未检测可用性";
+    }
+    return `已检测 ${checked} 个，可用 ${alive} 个，不可用 ${failed} 个`;
+  }
+
+  formatNodeHealth(health) {
+    if (!health) {
+      return "未检测";
+    }
+    if (!health.alive) {
+      return "不可用";
+    }
+    return Number.isFinite(Number(health.delay)) ? `可用 ${health.delay}ms` : "可用";
+  }
+
+  renderNodeHealthBadge(health) {
+    const label = this.formatNodeHealth(health);
+    const className = !health
+      ? "unknown"
+      : health.alive
+        ? "alive"
+        : "dead";
+    return `<span class="fixed-node-health ${className}">${escapeHtml(label)}</span>`;
+  }
+
+  renderFixedLinkOutput() {
+    const links = this.buildFixedInboundLinks(this.fixedInbounds);
+    if (!links.length) {
+      return "";
+    }
+
+    return `
+      <div class="fixed-link-output">
+        <div class="fixed-link-output-header">
+          <strong>固定入口 SOCKS 链接</strong>
+          <button type="button" class="btn btn-primary btn-sm" onclick="configManager.copyFixedLinks()">复制全部</button>
+        </div>
+        <textarea id="fixedLinkOutput" readonly rows="${Math.min(Math.max(links.length, 3), 8)}">${escapeHtml(links.join("\n"))}</textarea>
+      </div>
+    `;
+  }
+
+  buildFixedInboundLinks(inbounds) {
+    return inbounds
+      .filter((inbound) => inbound.enabled !== false)
+      .map((inbound) => this.formatFixedInboundLink(inbound))
+      .filter(Boolean);
+  }
+
+  formatFixedInboundLink(inbound) {
+    const proxy = String(inbound.proxy || inbound.proxyName || "").trim();
+    const username = String(inbound.username || "").trim();
+    const password = String(inbound.password || "").trim();
+    const port = Number(inbound.port);
+    if (!proxy || !username || !password || !Number.isInteger(port) || port < 1 || port > 65535) {
+      return "";
+    }
+
+    const rawHost = String(inbound.listen || "127.0.0.1").trim() || "127.0.0.1";
+    const host = rawHost === "0.0.0.0" || rawHost === "::" ? window.location.hostname : rawHost;
+    const credentials = `${encodeURIComponent(username)}:${encodeURIComponent(password)}`;
+    const formattedHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+    return `${proxy}|socks5://${credentials}@${formattedHost}:${port}`;
+  }
+
+  refreshFixedLinkOutput() {
+    const output = document.getElementById("fixedLinkOutput");
+    if (!output) return;
+    const links = this.buildFixedInboundLinks(this.fixedInbounds);
+    output.value = links.join("\n");
+  }
+
+  async copyFixedLinks() {
+    const links = this.buildFixedInboundLinks(this.fixedInbounds);
+    if (!links.length) {
+      this.showMessage("没有可复制的 SOCKS 链接。", "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(links.join("\n"));
+      this.showMessage("固定入口 SOCKS 链接已复制。", "success");
+    } catch (error) {
+      console.error("Copy fixed links failed:", error);
+      this.showMessage("复制失败，请手动复制。", "error");
+    }
   }
 
   updateFixedInboundFromInput(element) {
@@ -1272,6 +1377,7 @@ class ConfigManager {
       ...this.fixedInbounds[index],
       [field]: field === "enabled" ? element.checked : element.value,
     };
+    this.refreshFixedLinkOutput();
   }
 
   addFixedInboundRow() {
@@ -1288,10 +1394,53 @@ class ConfigManager {
     this.renderFixedInbounds();
   }
 
+  async testFixedInboundNodes() {
+    const currentGroupId = groupManager.currentGroup?.id;
+    if (!currentGroupId) {
+      this.showMessage("请先选择一个分组。", "error");
+      return;
+    }
+
+    try {
+      const payload = this.nodeOptions.length
+        ? { names: this.nodeOptions.map((node) => node.name) }
+        : {};
+      const response = await fetch(`/api/groups/${currentGroupId}/nodes/health`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Mihomo 节点测速失败");
+      }
+
+      this.nodeOptions = Array.isArray(result.nodes) ? result.nodes : [];
+      this.renderFixedInbounds();
+      const alive = this.nodeOptions.filter((node) => node.health?.alive).length;
+      const underDelay = this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, this.getMaxDelay())).length;
+      const checked = this.nodeOptions.filter((node) => node.health).length;
+      this.showMessage(`测速完成：已检测 ${checked} 个节点，可用 ${alive} 个，低于 ${this.getMaxDelay()}ms 的 ${underDelay} 个。`, "success");
+    } catch (error) {
+      this.showMessage(`测速失败：${error.message}`, "error");
+    }
+  }
+
+  getMaxDelay() {
+    const value = parseInt(document.getElementById("fixedMaxDelay")?.value, 10);
+    return Number.isInteger(value) && value > 0 ? value : 500;
+  }
+
+  isNodeWithinDelay(node, maxDelay = this.getMaxDelay()) {
+    const delay = Number(node?.health?.delay);
+    return Boolean(node?.health?.alive) && Number.isFinite(delay) && delay > 0 && delay <= maxDelay;
+  }
+
   addRandomFixedInbounds() {
     const count = parseInt(document.getElementById("fixedRandomCount")?.value, 10);
     const startPort = parseInt(document.getElementById("fixedRandomStartPort")?.value, 10);
     const endPort = parseInt(document.getElementById("fixedRandomEndPort")?.value, 10);
+    const maxDelay = this.getMaxDelay();
 
     if (!Number.isInteger(count) || count < 1 || count > 100) {
       this.showMessage("随机数量必须是 1-100 的整数。", "error");
@@ -1306,6 +1455,16 @@ class ConfigManager {
       return;
     }
 
+    const onlyHealthy = document.getElementById("fixedOnlyHealthy")?.checked !== false;
+    const candidateNodes = onlyHealthy
+      ? this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, maxDelay))
+      : this.nodeOptions;
+
+    if (!candidateNodes.length) {
+      this.showMessage(onlyHealthy ? `没有已缓存且低于 ${maxDelay}ms 的可用节点，请先点击“检测可用节点”或调高最大延迟。` : "当前分组没有可选节点。", "error");
+      return;
+    }
+
     const usedPorts = new Set(this.fixedInbounds.map((inbound) => Number(inbound.port)).filter(Number.isInteger));
     const availablePorts = [];
     for (let port = startPort; port <= endPort; port += 1) {
@@ -1317,7 +1476,7 @@ class ConfigManager {
       return;
     }
 
-    const shuffledNodes = this.shuffle([...this.nodeOptions]);
+    const shuffledNodes = this.shuffle([...candidateNodes].sort((a, b) => Number(a.health?.delay || Infinity) - Number(b.health?.delay || Infinity)));
     const nextRows = [];
     for (let index = 0; index < count; index += 1) {
       const port = availablePorts[index];
@@ -1336,7 +1495,8 @@ class ConfigManager {
 
     this.fixedInbounds.push(...nextRows);
     this.renderFixedInbounds();
-    this.showMessage(`已随机生成 ${nextRows.length} 个固定入口。`, "success");
+    this.copyFixedLinks().catch((error) => console.error("Copy fixed links failed:", error));
+    this.showMessage(`已从 ${candidateNodes.length} 个低于 ${maxDelay}ms 的节点中随机生成 ${nextRows.length} 个固定入口，并生成 SOCKS 链接。`, "success");
   }
 
   generateFixedCredential(prefix, length = 12) {
@@ -1410,6 +1570,9 @@ class ConfigManager {
       conversionMode: "native",
       nativeConverterEnabled: true,
       fallbackEnabled: false,
+      mihomoApiUrl: document.getElementById("modal-mihomoApiUrl").value.trim(),
+      mihomoSecret: document.getElementById("modal-mihomoSecret").value.trim(),
+      mihomoTestUrl: document.getElementById("modal-mihomoTestUrl").value.trim(),
       fixedInbounds,
       subUpdateTime:
         parseInt(document.getElementById("modal-subUpdateTime").value, 10) || 6,

@@ -186,6 +186,18 @@
               </select>
             </div>
             <div class="form-group">
+              <label for="modal-mihomoApiUrl">Mihomo API 地址</label>
+              <input type="text" id="modal-mihomoApiUrl" placeholder="默认 http://127.0.0.1:9090" />
+            </div>
+            <div class="form-group">
+              <label for="modal-mihomoSecret">Mihomo API 密钥</label>
+              <input type="password" id="modal-mihomoSecret" placeholder="可选，外部控制器 secret" />
+            </div>
+            <div class="form-group">
+              <label for="modal-mihomoTestUrl">Mihomo 测速 URL</label>
+              <input type="text" id="modal-mihomoTestUrl" placeholder="默认 https://api.ipify.org" />
+            </div>
+            <div class="form-group">
               <label for="modal-subUpdateTime">订阅更新间隔（小时）</label>
               <input type="number" id="modal-subUpdateTime" min="1" max="168" required />
             </div>
@@ -215,7 +227,13 @@
                   <input type="number" id="fixedRandomCount" min="1" max="100" placeholder="数量" />
                   <input type="number" id="fixedRandomStartPort" min="1" max="65535" placeholder="起始端口" />
                   <input type="number" id="fixedRandomEndPort" min="1" max="65535" placeholder="结束端口" />
+                  <input type="number" id="fixedMaxDelay" min="1" max="60000" value="500" placeholder="最大延迟ms" />
+                  <label class="fixed-healthy-toggle">
+                    <input type="checkbox" id="fixedOnlyHealthy" checked />
+                    仅可用
+                  </label>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.loadConfig()">刷新节点</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.testFixedInboundNodes()">检测可用节点</button>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.addRandomFixedInbounds()">随机生成</button>
                   <button type="button" class="btn btn-primary btn-sm" onclick="configManager.addFixedInboundRow()">新增映射</button>
                 </div>

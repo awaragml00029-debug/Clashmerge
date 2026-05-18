@@ -45,6 +45,9 @@
     "remoteConverterUrl": "",
     "remoteConverterProtocol": "https",
     "defaultPreviewFormat": "ss",
+    "mihomoApiUrl": "",
+    "mihomoSecret": "",
+    "mihomoTestUrl": "",
     "fixedInbounds": []
   }
 }
