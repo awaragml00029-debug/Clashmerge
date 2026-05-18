@@ -30,10 +30,19 @@ class MihomoHealthService {
   saveCache(cache) {
     try {
       fs.mkdirSync(path.dirname(this.cacheFile), { recursive: true });
-      fs.writeFileSync(this.cacheFile, JSON.stringify(cache, null, 2), "utf8");
+      this.atomicWriteFile(this.cacheFile, JSON.stringify(cache, null, 2));
     } catch (error) {
       console.warn("保存 Mihomo 节点健康缓存失败:", error.message);
     }
+  }
+
+  atomicWriteFile(filePath, content) {
+    const tempFile = path.join(
+      path.dirname(filePath),
+      `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`
+    );
+    fs.writeFileSync(tempFile, content, "utf8");
+    fs.renameSync(tempFile, filePath);
   }
 
   attachCachedHealth(nodes) {

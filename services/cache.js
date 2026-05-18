@@ -45,7 +45,7 @@ class SubscriptionCache {
     saveIndex() {
         try {
             const indexData = Object.fromEntries(this.cache);
-            fs.writeFileSync(this.indexFile, JSON.stringify(indexData, null, 2), 'utf8');
+            this.atomicWriteFile(this.indexFile, JSON.stringify(indexData, null, 2));
         } catch (error) {
             console.error('保存缓存索引失败:', error.message);
         }
@@ -60,6 +60,15 @@ class SubscriptionCache {
         // 将 key 转换为安全的文件名（Windows不支持冒号等特殊字符）
         const safeKey = key.replace(/:/g, '_').replace(/[^a-zA-Z0-9-_]/g, '_');
         return path.join(this.cacheDir, `${safeKey}.txt`);
+    }
+
+    atomicWriteFile(filePath, content) {
+        const tempFile = path.join(
+            path.dirname(filePath),
+            `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`
+        );
+        fs.writeFileSync(tempFile, content, 'utf8');
+        fs.renameSync(tempFile, filePath);
     }
 
     /**
@@ -137,7 +146,7 @@ class SubscriptionCache {
         try {
             // 写入缓存内容到文件
             const filePath = this.getCacheFilePath(key);
-            fs.writeFileSync(filePath, content, 'utf8');
+            this.atomicWriteFile(filePath, content);
 
             // 更新索引
             this.cache.set(key, meta);

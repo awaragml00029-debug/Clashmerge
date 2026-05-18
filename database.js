@@ -167,16 +167,21 @@ class Database {
 
   saveData() {
     try {
-      fs.writeFileSync(
-        this.dataFile,
-        JSON.stringify(this.data, null, 2),
-        "utf8"
-      );
+      this.atomicWriteFile(this.dataFile, JSON.stringify(this.data, null, 2));
       return true;
     } catch (error) {
       console.error("保存JSON数据失败:", error.message);
       return false;
     }
+  }
+
+  atomicWriteFile(filePath, content) {
+    const tempFile = path.join(
+      path.dirname(filePath),
+      `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`
+    );
+    fs.writeFileSync(tempFile, content, "utf8");
+    fs.renameSync(tempFile, filePath);
   }
 
   createDefaultData() {
