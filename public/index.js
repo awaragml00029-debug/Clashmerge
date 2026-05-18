@@ -2168,10 +2168,20 @@ class GroupManager {
           });
           const result = await response.json();
           if (!response.ok) {
-            throw new Error(result.error || "推送失败");
+            const details = [];
+            if (Array.isArray(result.generatedListenerPorts)) {
+              details.push(`生成端口：${result.generatedListenerPorts.join(", ") || "无"}`);
+            }
+            if (Array.isArray(result.targetListenerPorts)) {
+              details.push(`目标端口：${result.targetListenerPorts.join(", ") || "无"}`);
+            }
+            if (Array.isArray(result.missingListeners) && result.missingListeners.length > 0) {
+              details.push(`缺失绑定：${result.missingListeners.map((listener) => `${listener.port}->${listener.proxy}`).join(", ")}`);
+            }
+            throw new Error([result.error || "推送失败", ...details].join("；"));
           }
-          const ports = Array.isArray(result.listenerPorts) ? result.listenerPorts.join(", ") : "";
-          createGlobalToast(`已推送到 Mihomo，包含 ${result.listenerCount || 0} 个固定入口${ports ? `：${ports}` : ""}。`, "success");
+          const ports = Array.isArray(result.targetListenerPorts) ? result.targetListenerPorts.join(", ") : "";
+          createGlobalToast(`已推送到 Mihomo，并确认目标加载 ${result.targetListenerCount || 0} 个固定入口${ports ? `：${ports}` : ""}。`, "success");
         } catch (error) {
           createGlobalToast(`推送失败：${error.message}`, "error");
         }

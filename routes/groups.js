@@ -30,14 +30,45 @@ function normalizeFixedInbounds(config) {
     : [];
 }
 
-function summarizeMihomoConfig(content) {
-  const parsed = yaml.load(content) || {};
-  const listeners = Array.isArray(parsed.listeners) ? parsed.listeners : [];
+function summarizeMihomoConfigObject(config) {
+  const listeners = Array.isArray(config?.listeners) ? config.listeners : [];
+  const listenerDetails = listeners
+    .map((listener) => ({
+      name: String(listener?.name || ""),
+      type: String(listener?.type || ""),
+      listen: String(listener?.listen || ""),
+      port: Number(listener?.port),
+      proxy: String(listener?.proxy || ""),
+    }))
+    .filter((listener) => Number.isInteger(listener.port) && listener.port > 0);
   return {
-    listenerCount: listeners.length,
-    listenerPorts: listeners.map((listener) => listener.port).filter(Boolean),
-    proxyCount: Array.isArray(parsed.proxies) ? parsed.proxies.length : 0,
+    listenerCount: listenerDetails.length,
+    listenerPorts: listenerDetails.map((listener) => listener.port),
+    listeners: listenerDetails,
+    proxyCount: Array.isArray(config?.proxies) ? config.proxies.length : 0,
   };
+}
+
+function summarizeMihomoConfig(content) {
+  return summarizeMihomoConfigObject(yaml.load(content) || {});
+}
+
+function getMissingListeners(expectedListeners, actualListeners) {
+  const actualByPort = new Map(actualListeners.map((listener) => [listener.port, listener]));
+  return expectedListeners.filter((expected) => {
+    const actual = actualByPort.get(expected.port);
+    return !actual || actual.proxy !== expected.proxy;
+  });
+}
+
+function summarizeFixedInbounds(fixedInbounds) {
+  return fixedInbounds.map((inbound) => ({
+    name: String(inbound.name || `fixed-${inbound.port}`),
+    type: String(inbound.type || "mixed"),
+    listen: String(inbound.listen || "0.0.0.0"),
+    port: Number(inbound.port),
+    proxy: String(inbound.proxy || inbound.proxyName || "").trim(),
+  }));
 }
 
 async function getGroupNodeOptions(db, groupId) {
@@ -61,26 +92,34 @@ async function getGroupNodeOptions(db, groupId) {
   return { nodes, failures: result.failures, stats: result.stats };
 }
 
-async function generateGroupMihomoConfig(db, groupId) {
-  const [subscriptions, config] = await Promise.all([
-    db.getActiveSubscriptionsByGroup(groupId),
-    db.getConfig(),
-  ]);
+async function generateGroupMihomoConfig(db, groupId, config) {
+  const effectiveConfig = config || await db.getConfig();
+  const subscriptions = await db.getActiveSubscriptionsByGroup(groupId);
   const urls = expandSubscriptionUrls(subscriptions);
   if (urls.length === 0) {
     throw new Error("当前分组没有启用的订阅或节点列表");
   }
 
+  const fixedInbounds = normalizeFixedInbounds(effectiveConfig);
+  const fixedProxyNames = new Set(
+    fixedInbounds
+      .map((inbound) => String(inbound.proxy || inbound.proxyName || "").trim())
+      .filter(Boolean),
+  );
   const converter = new NativeConverter();
-  const content = await converter.convert(urls, "clash", {
-    fixedInbounds: normalizeFixedInbounds(config),
-  });
+  const result = await converter.listNodes(urls);
+  const generator = new ClashGenerator({ fixedInbounds });
+  const proxies = generator.generateProxies(result.nodes);
+  const selectedProxies = fixedProxyNames.size > 0
+    ? proxies.filter((proxy) => fixedProxyNames.has(proxy.name))
+    : proxies;
+  const content = generator.generateFromProxies(selectedProxies);
 
   return applyExtensionScriptToContent(
     getExtensionScript(),
     content,
     "clash",
-    config.fileName || "ClashMerge",
+    effectiveConfig.fileName || "ClashMerge",
   );
 }
 
@@ -241,12 +280,19 @@ function createGroupRoutes(db) {
         return res.status(400).json({ error: "当前系统配置没有已启用的固定入口，请先保存固定入口配置后再推送" });
       }
 
-      const content = await generateGroupMihomoConfig(db, id);
+      const expectedListeners = summarizeFixedInbounds(fixedInbounds);
+      const content = await generateGroupMihomoConfig(db, id, config);
       const summary = summarizeMihomoConfig(content);
-      if (summary.listenerCount === 0) {
+      const missingGeneratedListeners = getMissingListeners(expectedListeners, summary.listeners);
+      if (summary.listenerCount === 0 || missingGeneratedListeners.length > 0) {
         return res.status(400).json({
-          error: "生成的 Mihomo 配置没有 listeners。请确认固定入口绑定的节点名仍存在于当前分组解析结果中。",
+          error: "生成的 Mihomo 配置没有完整的固定入口 listeners。请确认固定入口绑定的节点名仍存在于当前分组解析结果中。",
           fixedInboundCount: fixedInbounds.length,
+          expectedListeners,
+          generatedListenerCount: summary.listenerCount,
+          generatedListenerPorts: summary.listenerPorts,
+          generatedListeners: summary.listeners,
+          missingListeners: missingGeneratedListeners,
           proxyCount: summary.proxyCount,
         });
       }
@@ -257,12 +303,32 @@ function createGroupRoutes(db) {
         testUrl: config.mihomoTestUrl,
       });
       await mihomo.pushConfig(content, { force: true });
+      const targetSummary = summarizeMihomoConfigObject(await mihomo.getConfig());
+      const missingListeners = getMissingListeners(summary.listeners, targetSummary.listeners);
+      if (missingListeners.length > 0) {
+        return res.status(502).json({
+          error: "Mihomo 已接收配置，但目标运行配置未加载预期固定入口 listeners。",
+          apiUrl: config.mihomoApiUrl,
+          generatedListenerCount: summary.listenerCount,
+          generatedListenerPorts: summary.listenerPorts,
+          generatedListeners: summary.listeners,
+          targetListenerCount: targetSummary.listenerCount,
+          targetListenerPorts: targetSummary.listenerPorts,
+          targetListeners: targetSummary.listeners,
+          missingListeners,
+        });
+      }
+
       res.json({
-        message: "已推送到 Mihomo",
+        message: "已推送到 Mihomo，并确认目标已加载固定入口",
         apiUrl: config.mihomoApiUrl,
         bytes: Buffer.byteLength(content),
         listenerCount: summary.listenerCount,
         listenerPorts: summary.listenerPorts,
+        listeners: summary.listeners,
+        targetListenerCount: targetSummary.listenerCount,
+        targetListenerPorts: targetSummary.listenerPorts,
+        targetListeners: targetSummary.listeners,
       });
     } catch (error) {
       console.error("推送 Mihomo 配置失败:", error);

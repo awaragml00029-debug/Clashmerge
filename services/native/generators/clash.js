@@ -20,7 +20,10 @@ class ClashGenerator extends BaseGenerator {
     const validNodes = this.filterValidNodes(nodes);
     const proxies = this.generateProxies(validNodes);
 
-    // 构建 Clash 配置
+    return this.generateFromProxies(proxies);
+  }
+
+  generateFromProxies(proxies) {
     const config = {
       port: 7890,
       "socks-port": 7891,

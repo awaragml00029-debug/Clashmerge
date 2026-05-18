@@ -63,6 +63,17 @@ class MihomoHealthService {
     return data;
   }
 
+  async getConfig() {
+    const response = await fetch(`${this.apiUrl}/configs`, {
+      headers: this.getHeaders(),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || `Mihomo API /configs 返回 ${response.status}`);
+    }
+    return data;
+  }
+
   async getProxyNames() {
     const response = await fetch(`${this.apiUrl}/proxies`, {
       headers: this.getHeaders(),
