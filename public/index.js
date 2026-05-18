@@ -1151,6 +1151,7 @@ class ConfigManager {
     this.currentConfig = null;
     this.fixedInbounds = [];
     this.nodeOptions = [];
+    this.nodeOptionsGroupId = null;
   }
 
   init() {
@@ -1169,11 +1170,10 @@ class ConfigManager {
 
   async loadConfig() {
     try {
-      const currentGroupId = groupManager.currentGroup?.id;
-      const [configResponse, scriptResponse, nodesResponse] = await Promise.all([
+      const currentGroupId = groupManager.currentGroup?.id ? String(groupManager.currentGroup.id) : null;
+      const [configResponse, scriptResponse] = await Promise.all([
         fetch("/api/config"),
         fetch("/api/extension-script"),
-        currentGroupId ? fetch(`/api/groups/${currentGroupId}/nodes`) : Promise.resolve(null),
       ]);
 
       if (!configResponse.ok) {
@@ -1184,17 +1184,50 @@ class ConfigManager {
         throw new Error("读取扩展脚本失败");
       }
 
+      if (this.nodeOptionsGroupId !== currentGroupId) {
+        this.nodeOptions = [];
+        this.nodeOptionsGroupId = currentGroupId;
+      }
+
       const config = await configResponse.json();
       const scriptResult = await scriptResponse.json();
-      if (nodesResponse?.ok) {
-        const nodeResult = await nodesResponse.json();
-        this.nodeOptions = Array.isArray(nodeResult.nodes) ? nodeResult.nodes : [];
-      } else {
-        this.nodeOptions = [];
-      }
       this.populateForm(config, scriptResult.script);
     } catch (error) {
       this.showMessage(`加载配置失败：${error.message}`, "error");
+    }
+  }
+
+  async loadNodeOptions({ silent = false } = {}) {
+    const currentGroupId = groupManager.currentGroup?.id;
+    if (!currentGroupId) {
+      this.nodeOptions = [];
+      this.nodeOptionsGroupId = null;
+      this.renderFixedInbounds();
+      if (!silent) {
+        this.showMessage("请先选择一个分组。", "error");
+      }
+      return [];
+    }
+
+    try {
+      const response = await fetch(`/api/groups/${currentGroupId}/nodes`);
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "加载节点候选失败");
+      }
+
+      this.nodeOptions = Array.isArray(result.nodes) ? result.nodes : [];
+      this.nodeOptionsGroupId = String(currentGroupId);
+      this.renderFixedInbounds();
+      if (!silent) {
+        this.showMessage(`已加载 ${this.nodeOptions.length} 个节点候选。`, "success");
+      }
+      return this.nodeOptions;
+    } catch (error) {
+      if (!silent) {
+        this.showMessage(`刷新节点失败：${error.message}`, "error");
+      }
+      throw error;
     }
   }
 
@@ -1237,7 +1270,9 @@ class ConfigManager {
       })
       .join("");
     const helperText = groupManager.currentGroup
-      ? `当前分组解析到 ${this.nodeOptions.length} 个节点，${healthSummary}。`
+      ? this.nodeOptions.length
+        ? `当前分组解析到 ${this.nodeOptions.length} 个节点，${healthSummary}。`
+        : "节点候选尚未加载，点击“刷新节点”后再选择或测速。"
       : "请先选择左侧分组，再打开系统配置以加载节点候选。";
 
     if (!this.fixedInbounds.length) {
@@ -1402,6 +1437,9 @@ class ConfigManager {
     }
 
     try {
+      if (!this.nodeOptions.length || this.nodeOptionsGroupId !== String(currentGroupId)) {
+        await this.loadNodeOptions({ silent: true });
+      }
       const payload = this.nodeOptions.length
         ? { names: this.nodeOptions.map((node) => node.name) }
         : {};
@@ -1451,7 +1489,7 @@ class ConfigManager {
       return;
     }
     if (!this.nodeOptions.length) {
-      this.showMessage("当前分组没有可选节点，请先刷新节点。", "error");
+      this.showMessage("当前分组没有可选节点，请先点击“刷新节点”。", "error");
       return;
     }
 

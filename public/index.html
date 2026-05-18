@@ -225,14 +225,14 @@
                 </div>
                 <div class="section-actions fixed-random-actions">
                   <input type="number" id="fixedRandomCount" min="1" max="100" placeholder="数量" />
-                  <input type="number" id="fixedRandomStartPort" min="1" max="65535" placeholder="起始端口" />
-                  <input type="number" id="fixedRandomEndPort" min="1" max="65535" placeholder="结束端口" />
+                  <input type="number" id="fixedRandomStartPort" min="1" max="65535" value="10800" placeholder="起始端口" />
+                  <input type="number" id="fixedRandomEndPort" min="1" max="65535" value="10900" placeholder="结束端口" />
                   <input type="number" id="fixedMaxDelay" min="1" max="60000" value="500" placeholder="最大延迟ms" />
                   <label class="fixed-healthy-toggle">
                     <input type="checkbox" id="fixedOnlyHealthy" checked />
                     仅可用
                   </label>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.loadConfig()">刷新节点</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.loadNodeOptions()">刷新节点</button>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.testFixedInboundNodes()">检测可用节点</button>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.addRandomFixedInbounds()">随机生成</button>
                   <button type="button" class="btn btn-primary btn-sm" onclick="configManager.addFixedInboundRow()">新增映射</button>
