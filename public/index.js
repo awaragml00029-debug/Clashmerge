@@ -1481,14 +1481,22 @@ class ConfigManager {
       throw new Error("请先选择一个分组。");
     }
 
+    const maxDelay = this.getMaxDelay();
     const response = await fetch(`/api/groups/${currentGroupId}/nodes/health`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        timeout: Math.min(Math.max(maxDelay + 1000, 1500), 5000),
+        concurrency: 20,
+      }),
     });
     const result = await response.json();
     if (!response.ok) {
-      throw new Error(result.error || "Mihomo 节点测速失败");
+      const details = [];
+      if (Number.isInteger(result.parsedNodeCount)) details.push(`解析节点 ${result.parsedNodeCount}`);
+      if (Number.isInteger(result.targetProxyCount)) details.push(`目标 Mihomo 当前 proxies ${result.targetProxyCount}`);
+      if (Number.isInteger(result.missingCount)) details.push(`缺失 ${result.missingCount}`);
+      throw new Error([result.error || "Mihomo 节点测速失败", ...details].join("；"));
     }
 
     this.nodeOptions = Array.isArray(result.nodes) ? result.nodes : [];
@@ -1540,14 +1548,6 @@ class ConfigManager {
         this.showMessage("请先选择一个分组。", "error");
         return;
       }
-      if (!this.nodeOptions.length || this.nodeOptionsGroupId !== String(currentGroupId)) {
-        await this.loadNodeOptions({ silent: true });
-      }
-      if (!this.nodeOptions.length) {
-        this.showMessage("当前分组没有可选节点。", "error");
-        return;
-      }
-
       const onlyHealthy = document.getElementById("fixedOnlyHealthy")?.checked !== false;
       this.showMessage("正在检测当前分组全部节点，并按延迟最低生成固定入口...", "success");
       const stats = await this.refreshFixedInboundNodeHealth();

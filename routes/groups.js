@@ -257,17 +257,40 @@ function createGroupRoutes(db) {
         ? result.nodes.filter((node) => requestedNames.has(node.name))
         : result.nodes;
       const config = await db.getConfig();
+      const requestedTimeout = Number(req.body?.timeout);
+      const requestedConcurrency = Number(req.body?.concurrency);
+      const healthTimeout = Number.isInteger(requestedTimeout) && requestedTimeout >= 500 && requestedTimeout <= 60000
+        ? requestedTimeout
+        : undefined;
+      const healthConcurrency = Number.isInteger(requestedConcurrency) && requestedConcurrency >= 1 && requestedConcurrency <= 50
+        ? requestedConcurrency
+        : undefined;
       const health = new MihomoHealthService({
         apiUrl: config.mihomoApiUrl,
         secret: config.mihomoSecret,
         testUrl: config.mihomoTestUrl,
+        timeout: healthTimeout,
+        concurrency: healthConcurrency,
       });
+      const nodeNamesToTest = nodesToTest.map((node) => node.name);
       await health.pushConfig(await generateGroupMihomoConfig(db, id, config), { force: true });
-      const healthResults = await health.testNodes(nodesToTest.map((node) => node.name));
+      const proxyReadiness = await health.waitForProxyNames(nodeNamesToTest);
+      if (!proxyReadiness.ready) {
+        return res.status(502).json({
+          error: "测试 Mihomo 已接收完整配置，但 /proxies 尚未加载全部当前分组节点。",
+          parsedNodeCount: result.nodes.length,
+          requestedNodeCount: nodeNamesToTest.length,
+          targetProxyCount: proxyReadiness.proxyCount,
+          missingCount: proxyReadiness.missingNames.length,
+          missingNames: proxyReadiness.missingNames.slice(0, 20),
+        });
+      }
+      const healthResults = await health.testNodes(nodeNamesToTest, proxyReadiness.proxyNames);
       res.json({
         ...result,
         nodes: health.attachCachedHealth(result.nodes),
         health: healthResults,
+        targetProxyCount: proxyReadiness.proxyCount,
       });
     } catch (error) {
       console.error("Mihomo 节点测速失败:", error);

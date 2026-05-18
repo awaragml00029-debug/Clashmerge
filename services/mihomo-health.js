@@ -265,9 +265,31 @@ class MihomoHealthService {
     return new Set(Object.keys(data.proxies || {}));
   }
 
-  async testNodes(names) {
+  async waitForProxyNames(names, { timeoutMs = 12000, intervalMs = 300 } = {}) {
+    const expectedNames = [...new Set(names.map((name) => String(name || "").trim()).filter(Boolean))];
+    if (expectedNames.length === 0) {
+      return { ready: true, proxyNames: new Set(), proxyCount: 0, missingNames: [] };
+    }
+
+    const deadline = Date.now() + timeoutMs;
+    let proxyNames = new Set();
+    let missingNames = expectedNames;
+
+    while (Date.now() <= deadline) {
+      proxyNames = await this.getProxyNames();
+      missingNames = expectedNames.filter((name) => !proxyNames.has(name));
+      if (missingNames.length === 0) {
+        return { ready: true, proxyNames, proxyCount: proxyNames.size, missingNames: [] };
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    return { ready: false, proxyNames, proxyCount: proxyNames.size, missingNames };
+  }
+
+  async testNodes(names, knownProxyNames = null) {
     const uniqueNames = [...new Set(names.map((name) => String(name || "").trim()).filter(Boolean))];
-    const proxyNames = await this.getProxyNames();
+    const proxyNames = knownProxyNames instanceof Set ? knownProxyNames : await this.getProxyNames();
     const cache = this.loadCache();
     const results = [];
 

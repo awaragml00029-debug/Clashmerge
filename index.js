@@ -20,7 +20,13 @@ const db = new Database();
 
 // 中间件
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public"), {
+  setHeaders(res, filePath) {
+    if (/\.(html|js|css)$/.test(filePath)) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+}));
 app.use(
   "/vendor/ace",
   express.static(path.join(__dirname, "node_modules", "ace-builds", "src-min-noconflict"))
