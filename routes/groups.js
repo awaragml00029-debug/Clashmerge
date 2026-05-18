@@ -262,6 +262,7 @@ function createGroupRoutes(db) {
         secret: config.mihomoSecret,
         testUrl: config.mihomoTestUrl,
       });
+      await health.pushConfig(await generateGroupMihomoConfig(db, id, config), { force: true });
       const healthResults = await health.testNodes(nodesToTest.map((node) => node.name));
       res.json({
         ...result,

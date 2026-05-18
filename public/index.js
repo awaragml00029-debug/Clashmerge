@@ -1481,16 +1481,10 @@ class ConfigManager {
       throw new Error("请先选择一个分组。");
     }
 
-    if (!this.nodeOptions.length || this.nodeOptionsGroupId !== String(currentGroupId)) {
-      await this.loadNodeOptions({ silent: true });
-    }
-    const payload = this.nodeOptions.length
-      ? { names: this.nodeOptions.map((node) => node.name) }
-      : {};
     const response = await fetch(`/api/groups/${currentGroupId}/nodes/health`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({}),
     });
     const result = await response.json();
     if (!response.ok) {
