@@ -27,6 +27,10 @@ function createConversionRoutes(db) {
         return normalizeFixedInbounds(config).length > 0;
     }
 
+    function normalizeNativeOutputFormat(format) {
+        return ["clash", "ss", "v2ray"].includes(format) ? format : "clash";
+    }
+
     function createConfigHash(config) {
         return crypto
             .createHash("sha1")
@@ -214,7 +218,11 @@ function createConversionRoutes(db) {
 
             const userAgentHeader = (req.headers["user-agent"] || "").toLowerCase();
             const formatQuery = pathRequestsYaml ? { ...req.query, target: "clash" } : req.query;
-            const 订阅格式 = detectSubscriptionFormat(userAgentHeader, formatQuery);
+            const detectedFormat = detectSubscriptionFormat(userAgentHeader, formatQuery);
+            const 订阅格式 = normalizeNativeOutputFormat(detectedFormat);
+            if (detectedFormat !== 订阅格式) {
+                console.warn(`本地转换暂不支持 ${detectedFormat}，已回退到 ${订阅格式}`);
+            }
             const extensionScript = getExtensionScript();
             const extensionScriptHash = crypto
                 .createHash("sha1")
@@ -261,8 +269,8 @@ function createConversionRoutes(db) {
 
             // 强制刷新或无缓存：同步获取
             if (forceRefresh) {
-                console.log(`强制刷新: 全量清空缓存, cacheKey=${cacheKey}`);
-                cache.clear();
+                console.log(`强制刷新: 删除当前缓存, cacheKey=${cacheKey}`);
+                cache.delete(cacheKey);
             } else {
                 console.log(`缓存未命中: ${cacheKey}`);
             }

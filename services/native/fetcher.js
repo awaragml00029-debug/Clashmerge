@@ -24,6 +24,8 @@ class SubscriptionFetcher {
         };
         this.parserList = Object.values(this.parsers);
         this.yamlParser = new YAMLParser();
+        const configuredTimeout = Number(process.env.SUBSCRIPTION_FETCH_TIMEOUT_MS || 15000);
+        this.timeoutMs = Number.isInteger(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 15000;
     }
 
     /**
@@ -74,12 +76,15 @@ class SubscriptionFetcher {
         const attempts = [];
 
         for (let i = 0; i < retries; i++) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+
             try {
                 const response = await fetch(url, {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                     },
-                    timeout: 15000
+                    signal: controller.signal
                 });
 
                 if (!response.ok) {
@@ -88,12 +93,16 @@ class SubscriptionFetcher {
 
                 return { response, attempts };
             } catch (error) {
-                lastError = error;
-                attempts.push(`尝试 ${i + 1}/${retries}: ${error.message}`);
+                lastError = error.name === "AbortError"
+                    ? new Error(`请求超时 ${this.timeoutMs}ms`)
+                    : error;
+                attempts.push(`尝试 ${i + 1}/${retries}: ${lastError.message}`);
 
                 if (i < retries - 1) {
                     await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
                 }
+            } finally {
+                clearTimeout(timeout);
             }
         }
 

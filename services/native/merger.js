@@ -41,8 +41,41 @@ class NodeMerger {
      * @returns {string} 唯一标识
      */
     generateNodeKey(node) {
-        // 使用 server + port + type 作为唯一标识
-        return `${node.type}:${node.server}:${node.port}`;
+        return this.stableStringify({
+            type: node.type,
+            server: node.server,
+            port: node.port,
+            method: node.method,
+            password: node.password,
+            uuid: node.uuid,
+            alterId: node.alterId,
+            cipher: node.cipher,
+            tls: node.tls,
+            sni: node.sni || node.servername,
+            skip_cert_verify: node.skip_cert_verify,
+            network: node.network,
+            flow: node.flow,
+            udp: node.udp,
+            ws_opts: node.ws_opts,
+            h2_opts: node.h2_opts,
+            grpc_opts: node.grpc_opts,
+            hysteria2_opts: node.hysteria2_opts,
+            alpn: node.alpn,
+        });
+    }
+
+    stableStringify(value) {
+        if (Array.isArray(value)) {
+            return `[${value.map((item) => this.stableStringify(item)).join(',')}]`;
+        }
+        if (value && typeof value === 'object') {
+            return `{${Object.keys(value)
+                .filter((key) => value[key] !== undefined && value[key] !== null && value[key] !== '')
+                .sort()
+                .map((key) => `${JSON.stringify(key)}:${this.stableStringify(value[key])}`)
+                .join(',')}}`;
+        }
+        return JSON.stringify(value);
     }
 
     /**

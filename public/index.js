@@ -1502,6 +1502,7 @@ class ConfigManager {
       if (Number.isInteger(result.parsedNodeCount)) details.push(`解析节点 ${result.parsedNodeCount}`);
       if (Number.isInteger(result.targetProxyCount)) details.push(`目标 Mihomo 当前 proxies ${result.targetProxyCount}`);
       if (Number.isInteger(result.missingCount)) details.push(`缺失 ${result.missingCount}`);
+      if (result.readinessError) details.push(`Mihomo 状态错误 ${result.readinessError}`);
       throw new Error([result.error || "Mihomo 节点测速失败", ...details].join("；"));
     }
 

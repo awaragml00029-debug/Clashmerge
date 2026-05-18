@@ -274,17 +274,23 @@ class MihomoHealthService {
     const deadline = Date.now() + timeoutMs;
     let proxyNames = new Set();
     let missingNames = expectedNames;
+    let lastError = null;
 
     while (Date.now() <= deadline) {
-      proxyNames = await this.getProxyNames();
-      missingNames = expectedNames.filter((name) => !proxyNames.has(name));
-      if (missingNames.length === 0) {
-        return { ready: true, proxyNames, proxyCount: proxyNames.size, missingNames: [] };
+      try {
+        proxyNames = await this.getProxyNames();
+        missingNames = expectedNames.filter((name) => !proxyNames.has(name));
+        lastError = null;
+        if (missingNames.length === 0) {
+          return { ready: true, proxyNames, proxyCount: proxyNames.size, missingNames: [] };
+        }
+      } catch (error) {
+        lastError = error;
       }
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
 
-    return { ready: false, proxyNames, proxyCount: proxyNames.size, missingNames };
+    return { ready: false, proxyNames, proxyCount: proxyNames.size, missingNames, error: lastError?.message || null };
   }
 
   async testNodes(names, knownProxyNames = null) {

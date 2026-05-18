@@ -283,6 +283,7 @@ function createGroupRoutes(db) {
           targetProxyCount: proxyReadiness.proxyCount,
           missingCount: proxyReadiness.missingNames.length,
           missingNames: proxyReadiness.missingNames.slice(0, 20),
+          readinessError: proxyReadiness.error || null,
         });
       }
       const healthResults = await health.testNodes(nodeNamesToTest, proxyReadiness.proxyNames);
