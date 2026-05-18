@@ -1405,7 +1405,13 @@ class ConfigManager {
     const host = this.getFixedLinkHost();
     const credentials = `${encodeURIComponent(username)}:${encodeURIComponent(password)}`;
     const formattedHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
-    return `${proxy}|socks5://${credentials}@${formattedHost}:${port}`;
+    return `${this.formatFixedLinkName(proxy)}|socks5://${credentials}@${formattedHost}:${port}`;
+  }
+
+  formatFixedLinkName(name) {
+    return String(name || "")
+      .normalize("NFKC")
+      .replace(/[^\p{L}\p{N}]/gu, "") || "节点";
   }
 
   getFixedLinkHost() {
