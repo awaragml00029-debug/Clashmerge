@@ -1553,10 +1553,9 @@ class ConfigManager {
       return;
     }
 
-    const usedPorts = new Set(this.fixedInbounds.map((inbound) => Number(inbound.port)).filter(Number.isInteger));
     const availablePorts = [];
     for (let port = startPort; port <= endPort; port += 1) {
-      if (!usedPorts.has(port)) availablePorts.push(port);
+      availablePorts.push(port);
     }
 
     if (availablePorts.length < count) {
@@ -1581,10 +1580,10 @@ class ConfigManager {
       });
     }
 
-    this.fixedInbounds.push(...nextRows);
+    this.fixedInbounds = nextRows;
     this.renderFixedInbounds();
     this.copyFixedLinks().catch((error) => console.error("Copy fixed links failed:", error));
-    this.showMessage(`已从 ${candidateNodes.length} 个低于 ${maxDelay}ms 的节点中随机生成 ${nextRows.length} 个固定入口，并生成 SOCKS 链接。`, "success");
+    this.showMessage(`已替换为 ${nextRows.length} 个固定入口，节点来自 ${candidateNodes.length} 个低于 ${maxDelay}ms 的候选，并生成 SOCKS 链接。`, "success");
   }
 
   generateFixedCredential(prefix, length = 12) {
