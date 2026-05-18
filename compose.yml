@@ -1,7 +1,8 @@
+name: clashmerge
+
 services:
   app:
-    build: .
-    image: clashmerge:local
+    image: ghcr.io/awaragml00029-debug/clashmerge:latest
     container_name: clashmerge
     restart: always
     ports:
