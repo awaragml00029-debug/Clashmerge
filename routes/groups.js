@@ -283,16 +283,13 @@ function createGroupRoutes(db) {
       const expectedListeners = summarizeFixedInbounds(fixedInbounds);
       const content = await generateGroupMihomoConfig(db, id, config);
       const summary = summarizeMihomoConfig(content);
-      const missingGeneratedListeners = getMissingListeners(expectedListeners, summary.listeners);
-      if (summary.listenerCount === 0 || missingGeneratedListeners.length > 0) {
+      const skippedListeners = getMissingListeners(expectedListeners, summary.listeners);
+      if (summary.listenerCount === 0) {
         return res.status(400).json({
-          error: "生成的 Mihomo 配置没有完整的固定入口 listeners。请确认固定入口绑定的节点名仍存在于当前分组解析结果中。",
+          error: "生成的 Mihomo 配置没有任何固定入口 listeners。请确认固定入口绑定的节点名仍存在于当前分组解析结果中。",
           fixedInboundCount: fixedInbounds.length,
           expectedListeners,
-          generatedListenerCount: summary.listenerCount,
-          generatedListenerPorts: summary.listenerPorts,
-          generatedListeners: summary.listeners,
-          missingListeners: missingGeneratedListeners,
+          skippedListeners,
           proxyCount: summary.proxyCount,
         });
       }
@@ -316,6 +313,7 @@ function createGroupRoutes(db) {
           targetListenerPorts: targetSummary.listenerPorts,
           targetListeners: targetSummary.listeners,
           missingListeners,
+          skippedListeners,
         });
       }
 
@@ -326,6 +324,8 @@ function createGroupRoutes(db) {
         listenerCount: summary.listenerCount,
         listenerPorts: summary.listenerPorts,
         listeners: summary.listeners,
+        skippedListenerCount: skippedListeners.length,
+        skippedListeners,
         targetListenerCount: targetSummary.listenerCount,
         targetListenerPorts: targetSummary.listenerPorts,
         targetListeners: targetSummary.listeners,

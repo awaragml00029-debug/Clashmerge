@@ -2181,7 +2181,10 @@ class GroupManager {
             throw new Error([result.error || "推送失败", ...details].join("；"));
           }
           const ports = Array.isArray(result.targetListenerPorts) ? result.targetListenerPorts.join(", ") : "";
-          createGlobalToast(`已推送到 Mihomo，并确认目标加载 ${result.targetListenerCount || 0} 个固定入口${ports ? `：${ports}` : ""}。`, "success");
+          const skipped = Array.isArray(result.skippedListeners) && result.skippedListeners.length > 0
+            ? `；跳过 ${result.skippedListeners.length} 个失效绑定：${result.skippedListeners.map((listener) => `${listener.port}->${listener.proxy}`).join(", ")}`
+            : "";
+          createGlobalToast(`已推送到 Mihomo，并确认目标加载 ${result.targetListenerCount || 0} 个固定入口${ports ? `：${ports}` : ""}${skipped}。`, "success");
         } catch (error) {
           createGlobalToast(`推送失败：${error.message}`, "error");
         }
