@@ -1293,7 +1293,7 @@ class ConfigManager {
         <select data-fixed-field="type" data-index="${index}">
           ${["mixed", "http", "socks"].map((type) => `<option value="${type}" ${inbound.type === type ? "selected" : ""}>${type}</option>`).join("")}
         </select>
-        <input type="text" data-fixed-field="listen" data-index="${index}" value="${escapeHtml(inbound.listen || "127.0.0.1")}" placeholder="监听地址" />
+        <input type="text" data-fixed-field="listen" data-index="${index}" value="${escapeHtml(inbound.listen || "0.0.0.0")}" placeholder="监听地址" />
         <div class="fixed-proxy-field">
           <input type="text" list="fixedInboundProxyOptions" data-fixed-field="proxy" data-index="${index}" value="${escapeHtml(proxyName)}" placeholder="输入或选择节点名" />
           ${this.renderNodeHealthBadge(matchedNode?.health)}
@@ -1467,7 +1467,7 @@ class ConfigManager {
       name: "",
       port: "",
       type: "mixed",
-      listen: "127.0.0.1",
+      listen: "0.0.0.0",
       proxy: "",
       username: this.generateFixedCredential("u"),
       password: this.generateFixedCredential("p", 18),
@@ -1574,7 +1574,7 @@ class ConfigManager {
         name: `fixed-${port}`,
         port,
         type: "mixed",
-        listen: "127.0.0.1",
+        listen: "0.0.0.0",
         proxy: node.name,
         username: `u${port}`,
         password: this.generateFixedCredential("p", 18),
@@ -1617,7 +1617,7 @@ class ConfigManager {
         name: String(inbound.name || "").trim(),
         port: Number(inbound.port),
         type: ["mixed", "http", "socks"].includes(inbound.type) ? inbound.type : "mixed",
-        listen: String(inbound.listen || "127.0.0.1").trim() || "127.0.0.1",
+        listen: String(inbound.listen || "0.0.0.0").trim() || "0.0.0.0",
         proxy: String(inbound.proxy || inbound.proxyName || "").trim(),
         username: String(inbound.username || "").trim(),
         password: String(inbound.password || "").trim(),

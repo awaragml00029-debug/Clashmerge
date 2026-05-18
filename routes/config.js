@@ -11,7 +11,7 @@ function normalizeFixedInbounds(value) {
             const port = Number(item?.port);
             const proxy = String(item?.proxy || item?.proxyName || "").trim();
             const type = ["http", "socks", "mixed"].includes(item?.type) ? item.type : "mixed";
-            const listen = String(item?.listen || "127.0.0.1").trim() || "127.0.0.1";
+            const listen = String(item?.listen || "0.0.0.0").trim() || "0.0.0.0";
             const name = String(item?.name || `fixed-${port}`).trim();
             const enabled = item?.enabled !== false;
             const username = String(item?.username || "").trim();

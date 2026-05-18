@@ -251,7 +251,7 @@ class ClashGenerator extends BaseGenerator {
       const listener = {
         name: inbound.name || `fixed-${port}`,
         type,
-        listen: inbound.listen || "127.0.0.1",
+        listen: inbound.listen || "0.0.0.0",
         port,
         proxy: proxyName,
       };
