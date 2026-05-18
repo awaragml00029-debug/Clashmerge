@@ -120,6 +120,20 @@ class NativeConverter {
     }
   }
 
+  async listNodes(subscriptionUrls) {
+    const fetchResults = await Promise.all(
+      subscriptionUrls.map((url) => this.fetcher.fetch(url)),
+    );
+    const nodes = this.merger.merge(fetchResults);
+    const failures = fetchResults.flatMap((result) => result.failures || []);
+
+    return {
+      nodes,
+      failures,
+      stats: this.merger.getStats(nodes),
+    };
+  }
+
   /**
    * 获取生成器类
    * @param {string} format - 格式名称

@@ -1150,6 +1150,7 @@ class ConfigManager {
     this.extensionScriptEditor = new AceScriptEditor("modal-extensionScriptEditor");
     this.currentConfig = null;
     this.fixedInbounds = [];
+    this.nodeOptions = [];
   }
 
   init() {
@@ -1168,9 +1169,11 @@ class ConfigManager {
 
   async loadConfig() {
     try {
-      const [configResponse, scriptResponse] = await Promise.all([
+      const currentGroupId = groupManager.currentGroup?.id;
+      const [configResponse, scriptResponse, nodesResponse] = await Promise.all([
         fetch("/api/config"),
         fetch("/api/extension-script"),
+        currentGroupId ? fetch(`/api/groups/${currentGroupId}/nodes`) : Promise.resolve(null),
       ]);
 
       if (!configResponse.ok) {
@@ -1183,6 +1186,12 @@ class ConfigManager {
 
       const config = await configResponse.json();
       const scriptResult = await scriptResponse.json();
+      if (nodesResponse?.ok) {
+        const nodeResult = await nodesResponse.json();
+        this.nodeOptions = Array.isArray(nodeResult.nodes) ? nodeResult.nodes : [];
+      } else {
+        this.nodeOptions = [];
+      }
       this.populateForm(config, scriptResult.script);
     } catch (error) {
       this.showMessage(`加载配置失败：${error.message}`, "error");
@@ -1214,12 +1223,23 @@ class ConfigManager {
     const container = document.getElementById("fixedInboundsList");
     if (!container) return;
 
+    const optionsId = "fixedInboundProxyOptions";
+    const optionHtml = this.nodeOptions
+      .map((node) => {
+        const label = [node.type, node.server, node.port].filter(Boolean).join(" · ");
+        return `<option value="${escapeHtml(node.name)}" label="${escapeHtml(label)}"></option>`;
+      })
+      .join("");
+    const helperText = groupManager.currentGroup
+      ? `当前分组解析到 ${this.nodeOptions.length} 个节点，可输入搜索并选择。`
+      : "请先选择左侧分组，再打开系统配置以加载节点候选。";
+
     if (!this.fixedInbounds.length) {
-      container.innerHTML = `<div class="fixed-inbounds-empty">还没有固定入口映射。点击“新增映射”后填写端口和节点名。</div>`;
+      container.innerHTML = `<div class="fixed-inbounds-empty">还没有固定入口映射。点击“新增映射”后填写端口并从节点候选中选择。</div><div class="fixed-inbounds-hint">${helperText}</div><datalist id="${optionsId}">${optionHtml}</datalist>`;
       return;
     }
 
-    container.innerHTML = this.fixedInbounds.map((inbound, index) => `
+    container.innerHTML = `<div class="fixed-inbounds-hint">${helperText}</div><datalist id="${optionsId}">${optionHtml}</datalist>` + this.fixedInbounds.map((inbound, index) => `
       <div class="fixed-inbound-row">
         <label class="fixed-inbound-toggle">
           <input type="checkbox" data-fixed-field="enabled" data-index="${index}" ${inbound.enabled === false ? "" : "checked"} />
@@ -1230,7 +1250,7 @@ class ConfigManager {
           ${["mixed", "http", "socks"].map((type) => `<option value="${type}" ${inbound.type === type ? "selected" : ""}>${type}</option>`).join("")}
         </select>
         <input type="text" data-fixed-field="listen" data-index="${index}" value="${escapeHtml(inbound.listen || "127.0.0.1")}" placeholder="监听地址" />
-        <input type="text" data-fixed-field="proxy" data-index="${index}" value="${escapeHtml(inbound.proxy || inbound.proxyName || "")}" placeholder="绑定节点名" />
+        <input type="text" list="fixedInboundProxyOptions" data-fixed-field="proxy" data-index="${index}" value="${escapeHtml(inbound.proxy || inbound.proxyName || "")}" placeholder="输入或选择节点名" />
         <button type="button" class="btn btn-danger btn-sm" onclick="configManager.removeFixedInboundRow(${index})">删除</button>
       </div>
     `).join("");

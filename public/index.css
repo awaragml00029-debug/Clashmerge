@@ -1043,6 +1043,13 @@ textarea {
     align-content: end;
 }
 
+.section-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .inline-checkbox-group label {
     display: flex;
     align-items: center;
@@ -1065,6 +1072,11 @@ textarea {
     border-radius: 16px;
     color: var(--muted);
     background: rgba(255, 255, 255, 0.42);
+}
+
+.fixed-inbounds-hint {
+    color: var(--muted);
+    font-size: 0.86rem;
 }
 
 .fixed-inbound-row {

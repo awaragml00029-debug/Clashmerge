@@ -1,5 +1,24 @@
 const express = require("express");
+const NativeConverter = require("../services/native");
 const router = express.Router();
+
+function expandSubscriptionUrls(subscriptions) {
+  const urls = [];
+  for (const sub of subscriptions) {
+    if (!sub || !sub.url) continue;
+    if (sub.type === "list" || sub.type === "node") {
+      urls.push(
+        ...sub.url
+          .split(/[\r\n,;]+/)
+          .map((value) => value.trim())
+          .filter(Boolean),
+      );
+    } else {
+      urls.push(sub.url);
+    }
+  }
+  return urls;
+}
 
 /**
  * 创建分组管理路由
@@ -91,6 +110,33 @@ function createGroupRoutes(db) {
     } catch (error) {
       console.error("获取分组订阅失败:", error);
       res.status(500).json({ error: "获取分组订阅失败" });
+    }
+  });
+
+  // 获取分组下可用于固定入口绑定的节点候选
+  router.get("/api/groups/:id/nodes", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const subscriptions = await db.getActiveSubscriptionsByGroup(id);
+      const urls = expandSubscriptionUrls(subscriptions);
+
+      if (urls.length === 0) {
+        return res.json({ nodes: [], failures: [], stats: { total: 0, byType: {} } });
+      }
+
+      const converter = new NativeConverter();
+      const result = await converter.listNodes(urls);
+      const nodes = result.nodes.map((node) => ({
+        name: node.name || "",
+        type: node.type || "",
+        server: node.server || "",
+        port: node.port || "",
+      }));
+
+      res.json({ nodes, failures: result.failures, stats: result.stats });
+    } catch (error) {
+      console.error("获取固定入口节点候选失败:", error);
+      res.status(500).json({ error: "获取固定入口节点候选失败" });
     }
   });
 
