@@ -1555,21 +1555,22 @@ class ConfigManager {
       }
 
       const onlyHealthy = document.getElementById("fixedOnlyHealthy")?.checked !== false;
-      let checked = 0;
-      if (onlyHealthy) {
-        this.showMessage("正在检测当前分组全部节点后再随机生成固定入口...", "success");
-        checked = (await this.refreshFixedInboundNodeHealth()).checked;
-      }
+      this.showMessage("正在检测当前分组全部节点，并按延迟最低生成固定入口...", "success");
+      const stats = await this.refreshFixedInboundNodeHealth();
+      const measuredNodes = this.nodeOptions.filter((node) => {
+        const delay = Number(node?.health?.delay);
+        return Boolean(node?.health?.alive) && Number.isFinite(delay) && delay >= 0;
+      });
       const candidateNodes = onlyHealthy
-        ? this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, maxDelay))
-        : this.nodeOptions;
+        ? measuredNodes.filter((node) => this.isNodeWithinDelay(node, maxDelay))
+        : measuredNodes;
 
       if (!candidateNodes.length) {
-        this.showMessage(onlyHealthy ? `已检测 ${checked} 个节点，没有低于 ${maxDelay}ms 的可用节点。请调高最大延迟或取消“仅可用”。` : "当前分组没有可选节点。", "error");
+        this.showMessage(onlyHealthy ? `已检测 ${stats.checked} 个节点，没有低于 ${maxDelay}ms 的可用节点。请调高最大延迟或取消“仅可用”。` : `已检测 ${stats.checked} 个节点，没有可用节点。`, "error");
         return;
       }
       if (candidateNodes.length < count) {
-        this.showMessage(`已检测 ${checked || this.nodeOptions.length} 个节点，符合条件的节点只有 ${candidateNodes.length} 个，不能生成 ${count} 个不重复固定入口。请减少数量或调高最大延迟。`, "error");
+        this.showMessage(`已检测 ${stats.checked} 个节点，符合条件的节点只有 ${candidateNodes.length} 个，不能生成 ${count} 个不重复固定入口。请减少数量或调高最大延迟。`, "error");
         return;
       }
 
@@ -1583,11 +1584,14 @@ class ConfigManager {
         return;
       }
 
-      const shuffledNodes = this.shuffle([...candidateNodes].sort((a, b) => Number(a.health?.delay || Infinity) - Number(b.health?.delay || Infinity)));
+      const lowestDelayNodes = [...candidateNodes].sort((a, b) => {
+        const delayDiff = Number(a.health?.delay) - Number(b.health?.delay);
+        return delayDiff || String(a.name || "").localeCompare(String(b.name || ""));
+      });
       const nextRows = [];
       for (let index = 0; index < count; index += 1) {
         const port = availablePorts[index];
-        const node = shuffledNodes[index];
+        const node = lowestDelayNodes[index];
         nextRows.push({
           enabled: true,
           name: `fixed-${port}`,
@@ -1603,7 +1607,7 @@ class ConfigManager {
       this.fixedInbounds = nextRows;
       this.renderFixedInbounds();
       this.copyFixedLinks().catch((error) => console.error("Copy fixed links failed:", error));
-      this.showMessage(`已从当前分组 ${checked || this.nodeOptions.length} 个节点中筛出 ${candidateNodes.length} 个低于 ${maxDelay}ms 的候选，并替换为 ${nextRows.length} 个固定入口。`, "success");
+      this.showMessage(`已检测当前分组 ${stats.checked} 个节点，按延迟最低选择前 ${nextRows.length} 个固定入口。`, "success");
     } catch (error) {
       this.showMessage(`随机生成失败：${error.message}`, "error");
     }

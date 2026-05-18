@@ -117,19 +117,11 @@ async function generateGroupMihomoConfig(db, groupId, config) {
   }
 
   const fixedInbounds = normalizeFixedInbounds(effectiveConfig);
-  const fixedProxyNames = new Set(
-    fixedInbounds
-      .map((inbound) => String(inbound.proxy || inbound.proxyName || "").trim())
-      .filter(Boolean),
-  );
   const converter = new NativeConverter();
   const result = await converter.listNodes(urls);
   const generator = new ClashGenerator({ fixedInbounds });
   const proxies = generator.generateProxies(result.nodes);
-  const selectedProxies = fixedProxyNames.size > 0
-    ? proxies.filter((proxy) => fixedProxyNames.has(proxy.name))
-    : proxies;
-  const content = generator.generateFromProxies(selectedProxies);
+  const content = generator.generateFromProxies(proxies);
 
   return applyExtensionScriptToContent(
     getExtensionScript(),
