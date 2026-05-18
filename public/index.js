@@ -2170,7 +2170,8 @@ class GroupManager {
           if (!response.ok) {
             throw new Error(result.error || "推送失败");
           }
-          createGlobalToast(`已推送到 Mihomo，配置大小 ${Math.round((result.bytes || 0) / 1024)} KB。`, "success");
+          const ports = Array.isArray(result.listenerPorts) ? result.listenerPorts.join(", ") : "";
+          createGlobalToast(`已推送到 Mihomo，包含 ${result.listenerCount || 0} 个固定入口${ports ? `：${ports}` : ""}。`, "success");
         } catch (error) {
           createGlobalToast(`推送失败：${error.message}`, "error");
         }

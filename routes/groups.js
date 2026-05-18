@@ -1,4 +1,5 @@
 const express = require("express");
+const yaml = require("js-yaml");
 const NativeConverter = require("../services/native");
 const { ClashGenerator } = require("../services/native/generators");
 const MihomoHealthService = require("../services/mihomo-health");
@@ -27,6 +28,16 @@ function normalizeFixedInbounds(config) {
   return Array.isArray(config?.fixedInbounds)
     ? config.fixedInbounds.filter((inbound) => inbound && inbound.enabled !== false)
     : [];
+}
+
+function summarizeMihomoConfig(content) {
+  const parsed = yaml.load(content) || {};
+  const listeners = Array.isArray(parsed.listeners) ? parsed.listeners : [];
+  return {
+    listenerCount: listeners.length,
+    listenerPorts: listeners.map((listener) => listener.port).filter(Boolean),
+    proxyCount: Array.isArray(parsed.proxies) ? parsed.proxies.length : 0,
+  };
 }
 
 async function getGroupNodeOptions(db, groupId) {
@@ -225,7 +236,21 @@ function createGroupRoutes(db) {
         return res.status(400).json({ error: "请先在系统配置中填写 Mihomo API 地址" });
       }
 
+      const fixedInbounds = normalizeFixedInbounds(config);
+      if (fixedInbounds.length === 0) {
+        return res.status(400).json({ error: "当前系统配置没有已启用的固定入口，请先保存固定入口配置后再推送" });
+      }
+
       const content = await generateGroupMihomoConfig(db, id);
+      const summary = summarizeMihomoConfig(content);
+      if (summary.listenerCount === 0) {
+        return res.status(400).json({
+          error: "生成的 Mihomo 配置没有 listeners。请确认固定入口绑定的节点名仍存在于当前分组解析结果中。",
+          fixedInboundCount: fixedInbounds.length,
+          proxyCount: summary.proxyCount,
+        });
+      }
+
       const mihomo = new MihomoHealthService({
         apiUrl: config.mihomoApiUrl,
         secret: config.mihomoSecret,
@@ -236,6 +261,8 @@ function createGroupRoutes(db) {
         message: "已推送到 Mihomo",
         apiUrl: config.mihomoApiUrl,
         bytes: Buffer.byteLength(content),
+        listenerCount: summary.listenerCount,
+        listenerPorts: summary.listenerPorts,
       });
     } catch (error) {
       console.error("推送 Mihomo 配置失败:", error);
