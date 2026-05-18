@@ -528,7 +528,10 @@ class SubscriptionManager {
   buildPreviewUrl(token, format) {
     const normalized = String(format || "ss").toLowerCase();
     const basePath = `/${token}`;
-    return normalized === "clash" ? `${basePath}?clash=1` : basePath;
+    if (["clash", "meta", "mihomo"].includes(normalized)) {
+      return `${basePath}?target=${encodeURIComponent(normalized)}`;
+    }
+    return normalized === "ss" ? `${basePath}?target=ss` : basePath;
   }
 
   refreshSubscription() {
@@ -716,9 +719,12 @@ class SubscriptionManager {
     const statusLabel = subscription.active ? "启用中" : "已停用";
     const userinfo = subscription.userinfo || {};
     const usagePending = !isList && userinfo.pending === true;
+    const usedTraffic = (userinfo.upload || 0) + (userinfo.download || 0);
+    const totalTraffic = userinfo.total || 0;
+    const remainingTraffic = Math.max(totalTraffic - usedTraffic, 0);
     const usageText = usagePending
       ? "流量读取中..."
-      : `${formatBytes((userinfo.upload || 0) + (userinfo.download || 0))} / ${formatBytes(userinfo.total || 0)}`;
+      : `${formatBytes(remainingTraffic)} 剩余 / ${formatBytes(totalTraffic)}`;
     const expireText = usagePending ? "--" : this.formatExpireDate(userinfo.expire);
     const usageBar = usagePending
       ? '<div class="usage-bar"></div>'
@@ -727,7 +733,7 @@ class SubscriptionManager {
       ? "正在读取实时流量。"
       : subscription._usageMeta?.isStale
         ? "当前显示的是缓存数据，后台会继续刷新。"
-        : "下载流量和上传流量按颜色拆分显示。";
+        : "进度条显示已用流量，数字显示剩余流量。";
     const urlPreview = isList
       ? `节点列表 · ${this.parseNodeUrls(subscription.url || "").length} 条`
       : this.getDomain(subscription.url);
@@ -768,7 +774,7 @@ class SubscriptionManager {
             <div class="subscription-meta">
               <div class="subscription-meta-row">
                 <div>
-                  <div class="meta-label">已用流量</div>
+                  <div class="meta-label">剩余流量</div>
                   <div class="meta-value ${usagePending ? "pending" : ""}">${usageText}</div>
                 </div>
                 <div>
@@ -1143,6 +1149,7 @@ class ConfigManager {
   constructor() {
     this.extensionScriptEditor = new AceScriptEditor("modal-extensionScriptEditor");
     this.currentConfig = null;
+    this.fixedInbounds = [];
   }
 
   init() {
@@ -1193,6 +1200,8 @@ class ConfigManager {
     document.getElementById("modal-botToken").value = config.botToken || "";
     document.getElementById("modal-chatId").value = config.chatId || "";
     document.getElementById("modal-adminPassword").value = config.adminPassword || "";
+    this.fixedInbounds = Array.isArray(config.fixedInbounds) ? config.fixedInbounds : [];
+    this.renderFixedInbounds();
 
     this.extensionScriptEditor.setValue(extensionScript || DEFAULT_EXTENSION_SCRIPT);
     this.currentConfig = {
@@ -1201,12 +1210,110 @@ class ConfigManager {
     };
   }
 
+  renderFixedInbounds() {
+    const container = document.getElementById("fixedInboundsList");
+    if (!container) return;
+
+    if (!this.fixedInbounds.length) {
+      container.innerHTML = `<div class="fixed-inbounds-empty">还没有固定入口映射。点击“新增映射”后填写端口和节点名。</div>`;
+      return;
+    }
+
+    container.innerHTML = this.fixedInbounds.map((inbound, index) => `
+      <div class="fixed-inbound-row">
+        <label class="fixed-inbound-toggle">
+          <input type="checkbox" data-fixed-field="enabled" data-index="${index}" ${inbound.enabled === false ? "" : "checked"} />
+          启用
+        </label>
+        <input type="number" min="1" max="65535" data-fixed-field="port" data-index="${index}" value="${escapeHtml(inbound.port || "")}" placeholder="端口" />
+        <select data-fixed-field="type" data-index="${index}">
+          ${["mixed", "http", "socks"].map((type) => `<option value="${type}" ${inbound.type === type ? "selected" : ""}>${type}</option>`).join("")}
+        </select>
+        <input type="text" data-fixed-field="listen" data-index="${index}" value="${escapeHtml(inbound.listen || "127.0.0.1")}" placeholder="监听地址" />
+        <input type="text" data-fixed-field="proxy" data-index="${index}" value="${escapeHtml(inbound.proxy || inbound.proxyName || "")}" placeholder="绑定节点名" />
+        <button type="button" class="btn btn-danger btn-sm" onclick="configManager.removeFixedInboundRow(${index})">删除</button>
+      </div>
+    `).join("");
+
+    container.querySelectorAll("[data-fixed-field]").forEach((element) => {
+      element.addEventListener("input", () => this.updateFixedInboundFromInput(element));
+      element.addEventListener("change", () => this.updateFixedInboundFromInput(element));
+    });
+  }
+
+  updateFixedInboundFromInput(element) {
+    const index = Number(element.dataset.index);
+    const field = element.dataset.fixedField;
+    if (!Number.isInteger(index) || !field || !this.fixedInbounds[index]) return;
+
+    this.fixedInbounds[index] = {
+      ...this.fixedInbounds[index],
+      [field]: field === "enabled" ? element.checked : element.value,
+    };
+  }
+
+  addFixedInboundRow() {
+    this.fixedInbounds.push({
+      enabled: true,
+      name: "",
+      port: "",
+      type: "mixed",
+      listen: "127.0.0.1",
+      proxy: "",
+    });
+    this.renderFixedInbounds();
+  }
+
+  removeFixedInboundRow(index) {
+    this.fixedInbounds.splice(index, 1);
+    this.renderFixedInbounds();
+  }
+
+  collectFixedInbounds() {
+    const ports = new Set();
+    return this.fixedInbounds
+      .map((inbound) => ({
+        enabled: inbound.enabled !== false,
+        name: String(inbound.name || "").trim(),
+        port: Number(inbound.port),
+        type: ["mixed", "http", "socks"].includes(inbound.type) ? inbound.type : "mixed",
+        listen: String(inbound.listen || "127.0.0.1").trim() || "127.0.0.1",
+        proxy: String(inbound.proxy || inbound.proxyName || "").trim(),
+      }))
+      .filter((inbound) => {
+        if (!inbound.enabled && !inbound.port && !inbound.proxy) return false;
+        if (!Number.isInteger(inbound.port) || inbound.port < 1 || inbound.port > 65535) {
+          throw new Error("固定入口端口必须是 1-65535 的整数。");
+        }
+        if (ports.has(inbound.port)) {
+          throw new Error(`固定入口端口重复：${inbound.port}`);
+        }
+        if (!inbound.proxy) {
+          throw new Error("固定入口绑定节点不能为空。");
+        }
+        ports.add(inbound.port);
+        return true;
+      });
+  }
+
   async saveConfig() {
+    let fixedInbounds;
+    try {
+      fixedInbounds = this.collectFixedInbounds();
+    } catch (error) {
+      this.showMessage(error.message, "error");
+      return;
+    }
+
     const config = {
       token: document.getElementById("modal-token").value.trim(),
       fileName: document.getElementById("modal-fileName").value.trim(),
       defaultPreviewFormat:
         document.getElementById("modal-defaultPreviewFormat").value || "ss",
+      conversionMode: "native",
+      nativeConverterEnabled: true,
+      fallbackEnabled: false,
+      fixedInbounds,
       subUpdateTime:
         parseInt(document.getElementById("modal-subUpdateTime").value, 10) || 6,
       total:

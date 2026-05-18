@@ -34,7 +34,7 @@
     "botToken": "YOUR_BOT_TOKEN_HERE",
     "chatId": "YOUR_CHAT_ID_HERE",
     "tg": 0,
-    "fileName": "您的文件名",
+    "fileName": "ClashMerge",
     "subUpdateTime": 6,
     "total": 99,
     "timestamp": 4102329600000,
@@ -42,8 +42,9 @@
     "conversionMode": "native",
     "fallbackEnabled": false,
     "nativeConverterEnabled": true,
-    "remoteConverterUrl": "https://subc.00321.xyz",
+    "remoteConverterUrl": "",
     "remoteConverterProtocol": "https",
-    "defaultPreviewFormat": "ss"
+    "defaultPreviewFormat": "ss",
+    "fixedInbounds": []
   }
 }

@@ -16,9 +16,10 @@ class NativeConverter {
    * 转换订阅
    * @param {Array<string>} subscriptionUrls - 订阅 URL 列表
    * @param {string} targetFormat - 目标格式 (ss/clash/v2ray)
+   * @param {object} options - 生成选项
    * @returns {Promise<string>} 转换后的订阅内容
    */
-  async convert(subscriptionUrls, targetFormat) {
+  async convert(subscriptionUrls, targetFormat, options = {}) {
     let currentStep = "init";
     try {
       console.log(`========== 原生转换开始 ==========`);
@@ -98,7 +99,7 @@ class NativeConverter {
         throw new Error(`不支持的格式: ${targetFormat}`);
       }
 
-      const generator = new Generator();
+      const generator = new Generator(options);
       const validNodes = generator.filterValidNodes(allNodes);
       const result = generator.generate(allNodes);
 
@@ -132,6 +133,8 @@ class NativeConverter {
       // 兼容其他可能的格式名称
       shadowsocks: generators.SSGenerator,
       "clash.yaml": generators.ClashGenerator,
+      meta: generators.ClashGenerator,
+      mihomo: generators.ClashGenerator,
       "v2ray.json": generators.V2RayGenerator,
     };
 

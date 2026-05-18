@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SubX 订阅工作台</title>
+  <title>ClashMerge 订阅工作台</title>
   <link rel="stylesheet" href="index.css">
 </head>
 
@@ -12,7 +12,7 @@
   <div class="app-shell">
     <header class="hero-panel">
       <div class="hero-copy">
-        <h1>SubX 订阅工作台</h1>
+        <h1>ClashMerge 订阅工作台</h1>
         <p>轻松管理您的订阅链接，支持实时添加、编辑和删除</p>
       </div>
       <div class="hero-actions">
@@ -182,6 +182,7 @@
               <select id="modal-defaultPreviewFormat">
                 <option value="ss">SS</option>
                 <option value="clash">Clash</option>
+                <option value="meta">Mihomo / Clash.Meta</option>
               </select>
             </div>
             <div class="form-group">
@@ -203,6 +204,16 @@
             <div class="form-group">
               <label for="modal-adminPassword">管理员密码 *</label>
               <input type="password" id="modal-adminPassword" required />
+            </div>
+            <div class="form-group full-width fixed-inbounds-section">
+              <div class="section-inline-heading">
+                <div>
+                  <label>固定入口映射</label>
+                  <div class="form-help">用于 Mihomo/Clash.Meta：一个本地端口固定绑定一个节点，例如 10991 → 美国1节点。</div>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="configManager.addFixedInboundRow()">新增映射</button>
+              </div>
+              <div id="fixedInboundsList" class="fixed-inbounds-list"></div>
             </div>
             <div class="form-group full-width">
               <label for="modal-extensionScriptEditor">扩展脚本</label>

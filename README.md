@@ -1,4 +1,4 @@
-# SubX 订阅管理系统
+# ClashMerge 订阅管理系统
 
 🚀 一个基于 Node.js 的轻量级订阅链接管理系统，支持订阅转换、在线管理和持久化存储。
 
@@ -28,14 +28,12 @@
 - 配置热更新，无需重启服务
 
 ### 🔄 订阅转换
-- 支持多种客户端格式转换（本地支持 ss/clash/v2ray，其他格式依赖远程转换）
+- 支持本地客户端格式转换（ss/clash/v2ray）
 - 智能客户端识别
 - 批量订阅合并
 - 公开API，无需登录即可使用
-- **本地转换器**：项目内置原生解析与生成器（无需依赖 subconverter）
-- **远程转换器**：支持调用远程转换 API
-- **智能回退**：本地转换失败时自动切换到远程（可关闭）
-- **灵活模式**：支持手动指定转换模式（native/remote）
+- **本地转换器**：项目内置原生解析与生成器，默认不依赖外部 subconverter
+- **固定入口**：支持 Mihomo/Clash.Meta listeners 端口固定绑定节点
 - **SS 输出多协议**：原生模式下 SS 输出可保留多协议 URI
 
 ### 📊 日志系统
@@ -66,7 +64,7 @@
 1. **克隆项目**
    ```bash
    git clone <repository-url>
-   cd subx
+   cd clashmerge
    ```
 
 2. **安装依赖**
@@ -182,13 +180,9 @@
 
 #### 转换模式
 
-系统支持三种转换模式：
+系统默认使用 **本地模式（native）**：使用内置转换器，速度快，无需外部依赖。
 
-1. **本地模式（native）**：使用内置转换器，速度快，无需外部依赖  
-   - 原生输出支持：`ss` / `clash` / `v2ray`
-2. **远程模式（remote）**：调用远程转换API，功能更强大  
-   - 由远程服务决定支持的客户端格式（如 Surge/SingBox/QuanX/Loon 等）
-3. **自动模式（默认）**：优先使用本地转换，失败后自动回退到远程（可通过 `fallbackEnabled` 关闭）
+原生输出支持：`ss` / `clash` / `v2ray`。
 
 #### 基本用法
 
@@ -199,21 +193,18 @@ GET /{token}?参数=值
 #### 模式切换
 
 ```bash
-# 使用本地转换器
-curl "http://localhost:3000/your-token?mode=native"
-
-# 使用远程转换器
-curl "http://localhost:3000/your-token?mode=remote"
-
-# 自动模式（默认）
+# 默认使用本地转换器
 curl "http://localhost:3000/your-token"
+
+# 明确指定本地转换器
+curl "http://localhost:3000/your-token?mode=native"
 ```
 
 #### 支持的客户端
 
-- **Clash**: 在URL中添加 `?clash=1` 或使用Clash客户端User-Agent（native/remote 均支持）
-- **SS**: 默认返回 SS 格式（native/remote 均支持）
-- **Surge / SingBox / Quantumult X / Loon**: 需使用 `remote` 模式（或开启回退），由远程转换器提供支持
+- **Clash / Mihomo**: 使用 `?target=clash`、`?target=meta` 或 `.yaml`
+- **SS**: 使用 `?target=ss` 或默认客户端识别
+- **V2Ray**: 使用 `?target=v2ray`
 
 #### 示例
 
@@ -231,7 +222,7 @@ curl "http://localhost:3000/your-token"
 ## 📁 项目结构
 
 ```
-subx/
+clashmerge/
 ├── data/                      # 数据目录
 │   ├── config.json           # 实际配置文件（忽略提交）
 │   ├── config.template.json  # 配置模板
@@ -242,7 +233,7 @@ subx/
 │   └── app-YYYY-MM-DD.log   # 按日期归档的日志
 ├── services/                  # 服务层
 │   ├── cache.js              # 缓存服务
-│   ├── converter.js          # 远程转换服务
+│   ├── converter.js          # 订阅格式识别
 │   └── native/               # 本地转换器
 │       ├── index.js          # 转换器主入口
 │       ├── fetcher.js        # 订阅源拉取
@@ -284,11 +275,9 @@ subx/
     "defaultPreviewFormat": "ss",       // 默认预览格式: ss/clash
 
     // 转换器配置
-    "conversionMode": "native",         // 转换模式: auto/native/remote
-    "fallbackEnabled": false,           // 启用自动回退
+    "conversionMode": "native",         // 固定使用本地转换
     "nativeConverterEnabled": true,     // 启用本地转换器
-    "remoteConverterUrl": "https://subc.00321.xyz",  // 远程转换API
-    "remoteConverterProtocol": "https"  // 远程API协议
+    "fixedInbounds": []                 // Mihomo/Clash.Meta 固定入口映射
   }
 }
 ```
@@ -306,7 +295,7 @@ pnpm start
 1. **使用PM2**
    ```bash
    npm install -g pm2
-   pm2 start index.js --name subx
+   pm2 start index.js --name clashmerge
    ```
 
 2. **使用Docker**
@@ -345,8 +334,6 @@ TGTOKEN=telegram-bot-token  # Telegram Bot Token
 TGID=telegram-chat-id       # Telegram Chat ID
 TG=1                        # 启用Telegram通知
 SUBNAME=订阅名称            # 订阅文件名称
-SUBAPI=订阅转换API地址      # 自定义转换API
-SUBCONFIG=配置文件URL       # 自定义配置文件
 ```
 
 ## 🛡️ 安全说明
@@ -376,8 +363,8 @@ A: 备份整个 `data/` 目录即可，包含所有配置和会话信息。
 ### Q: 服务器重启后需要重新登录？
 A: 正常情况下不需要，系统使用文件存储会话。如果仍需重新登录，请检查 `data/sessions/` 目录权限。
 
-### Q: 如何自定义订阅转换API？
-A: 设置环境变量 `SUBAPI=your-api-domain.com` 或在配置中修改 `subConverter`。
+### Q: 是否会调用外部订阅转换服务？
+A: 默认不会。订阅解析、合并和 `ss` / `clash` / `v2ray` 输出均由本地转换器完成。
 
 ### Q: 如何查看系统日志？
 A: 日志文件保存在 `logs/` 目录：
@@ -395,16 +382,8 @@ type logs\error.log
 type logs\app-2026-02-04.log
 ```
 
-### Q: 本地转换器和远程转换器的区别？
-A:
-- **本地转换器**：速度快，无网络依赖，原生输出支持 `ss/clash/v2ray`
-- **远程转换器**：功能更全面，需要网络连接，支持更多客户端格式
-- **自动模式**：优先本地，失败时自动切换远程（可通过 `fallbackEnabled` 关闭）
-
-### Q: 如何切换转换模式？
-A:
-1. **临时切换**：在URL中添加 `?mode=native` 或 `?mode=remote`
-2. **永久切换**：修改 `data/config.json` 中的 `conversionMode` 字段
+### Q: 支持哪些本地转换格式？
+A: 当前本地转换器原生支持 `ss`、`clash` / `mihomo` 和 `v2ray` 输出；Clash YAML 导出可带 `listeners` 固定入口配置。
 
 ## 🤝 贡献指南
 

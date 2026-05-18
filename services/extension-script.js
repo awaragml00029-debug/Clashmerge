@@ -55,7 +55,7 @@ function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function runExtensionScript(script, inputConfig, profileName = "SubX") {
+function runExtensionScript(script, inputConfig, profileName = "ClashMerge") {
   const sandbox = {
     inputConfig: deepClone(inputConfig),
     profileName,

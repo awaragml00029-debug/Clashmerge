@@ -5,7 +5,6 @@ const session = require("express-session");
 const FileStore = require("session-file-store")(session);
 const Database = require("./database");
 const { checkAuthForAdmin, requireAuth } = require("./middleware/auth");
-const { setConverterConfig } = require("./services/converter");
 const { getLocalIPAddresses } = require("./utils/network");
 
 // 创建路由
@@ -50,24 +49,6 @@ app.use(
 // 应用身份验证中间件
 app.use(checkAuthForAdmin);
 
-// 初始化配置从数据库加载
-async function loadConfigFromDatabase() {
-  try {
-    const config = await db.getConfig();
-    // console.log("从数据库加载配置成功");
-
-    // 设置订阅转换器配置
-    const subConverter = process.env.SUBAPI || config.subConverter || "subc.00321.xyz";
-    const subConfig = process.env.SUBCONFIG || config.subConfig;
-    setConverterConfig(subConverter, subConfig);
-  } catch (error) {
-    console.error("加载配置失败，使用默认值:", error.message);
-  }
-}
-
-// 启动时加载配置
-loadConfigFromDatabase();
-
 // 注册路由
 app.use(createAuthRoutes(db, requireAuth));
 app.use(createSubscriptionRoutes(db));
@@ -88,11 +69,6 @@ app.listen(port, "0.0.0.0", () => {
   console.log(`  - http://127.0.0.1:${port}/admin`);
   addresses.forEach(addr => {
     console.log(`  - ${addr}/admin`);
-  });
-
-  // 在服务器启动后加载配置
-  loadConfigFromDatabase().catch((error) => {
-    console.error("加载配置失败:", error);
   });
 });
 

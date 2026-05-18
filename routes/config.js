@@ -2,6 +2,55 @@ const express = require("express");
 const router = express.Router();
 const { getExtensionScript, saveExtensionScript } = require("../services/extension-script");
 
+function normalizeFixedInbounds(value) {
+    if (!Array.isArray(value)) return [];
+
+    const usedPorts = new Set();
+    return value
+        .map((item) => {
+            const port = Number(item?.port);
+            const proxy = String(item?.proxy || item?.proxyName || "").trim();
+            const type = ["http", "socks", "mixed"].includes(item?.type) ? item.type : "mixed";
+            const listen = String(item?.listen || "127.0.0.1").trim() || "127.0.0.1";
+            const name = String(item?.name || `fixed-${port}`).trim();
+            const enabled = item?.enabled !== false;
+
+            if (!Number.isInteger(port) || port < 1 || port > 65535) {
+                throw new Error("固定入口端口必须是 1-65535 的整数");
+            }
+            if (usedPorts.has(port)) {
+                throw new Error(`固定入口端口重复: ${port}`);
+            }
+            if (!proxy) {
+                throw new Error("固定入口绑定节点不能为空");
+            }
+            if (proxy.length > 200) {
+                throw new Error("固定入口绑定节点名称过长");
+            }
+
+            usedPorts.add(port);
+            return { enabled, name, type, listen, port, proxy };
+        });
+}
+
+function normalizeConfigPayload(config) {
+    if (!config || typeof config !== "object") return config;
+
+    const normalized = {
+        ...config,
+        conversionMode: "native",
+        fallbackEnabled: false,
+        nativeConverterEnabled: true,
+        remoteConverterUrl: "",
+    };
+
+    if (Object.prototype.hasOwnProperty.call(config, "fixedInbounds")) {
+        normalized.fixedInbounds = normalizeFixedInbounds(config.fixedInbounds);
+    }
+
+    return normalized;
+}
+
 /**
  * 创建配置管理相关路由
  * @param {object} db - 数据库实例
@@ -22,12 +71,12 @@ function createConfigRoutes(db) {
     // 更新配置
     router.put("/api/config", async (req, res) => {
         try {
-            const newConfig = req.body;
+            const newConfig = normalizeConfigPayload(req.body);
             const result = await db.updateConfig(newConfig);
             res.json({ message: "配置更新成功", config: result.config });
         } catch (error) {
             console.error("更新配置失败:", error);
-            res.status(500).json({ error: "更新配置失败" });
+            res.status(400).json({ error: error.message || "更新配置失败" });
         }
     });
 
@@ -48,8 +97,17 @@ function createConfigRoutes(db) {
         try {
             const { key } = req.params;
             const { value } = req.body;
-            await db.setConfigValue(key, value);
-            res.json({ message: "配置项更新成功", key, value });
+            const localOnlyOverrides = {
+                conversionMode: "native",
+                fallbackEnabled: false,
+                nativeConverterEnabled: true,
+                remoteConverterUrl: "",
+            };
+            const nextValue = Object.prototype.hasOwnProperty.call(localOnlyOverrides, key)
+                ? localOnlyOverrides[key]
+                : value;
+            await db.setConfigValue(key, nextValue);
+            res.json({ message: "配置项更新成功", key, value: nextValue });
         } catch (error) {
             console.error("设置配置项失败:", error);
             res.status(500).json({ error: "设置配置项失败" });

@@ -20,12 +20,13 @@ class Database {
         total: 99,
         timestamp: 4102329600000,
         adminPassword: "",
-        conversionMode: "remote",
-        fallbackEnabled: true,
+        conversionMode: "native",
+        fallbackEnabled: false,
         nativeConverterEnabled: true,
-        remoteConverterUrl: "https://subc.00321.xyz",
+        remoteConverterUrl: "",
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
+        fixedInbounds: [],
       },
     };
     this.init();
@@ -66,12 +67,13 @@ class Database {
   migrateConfig() {
     let needsSave = false;
     const defaultConversionConfig = {
-      conversionMode: "remote",
-      fallbackEnabled: true,
+      conversionMode: "native",
+      fallbackEnabled: false,
       nativeConverterEnabled: true,
-      remoteConverterUrl: "https://subc.00321.xyz",
+      remoteConverterUrl: "",
       remoteConverterProtocol: "https",
       defaultPreviewFormat: "ss",
+      fixedInbounds: [],
     };
 
     for (const [key, defaultValue] of Object.entries(defaultConversionConfig)) {
@@ -80,6 +82,19 @@ class Database {
         needsSave = true;
         console.log(`配置迁移: 添加 ${key} = ${defaultValue}`);
       }
+    }
+
+    if (this.data.config.conversionMode === "remote") {
+      this.data.config.conversionMode = "native";
+      needsSave = true;
+    }
+    if (this.data.config.fallbackEnabled === true) {
+      this.data.config.fallbackEnabled = false;
+      needsSave = true;
+    }
+    if (this.data.config.remoteConverterUrl) {
+      this.data.config.remoteConverterUrl = "";
+      needsSave = true;
     }
 
     if (needsSave) {
@@ -214,17 +229,18 @@ class Database {
         botToken: "",
         chatId: "",
         tg: 0,
-        fileName: "SubX",
+        fileName: "ClashMerge",
         subUpdateTime: 6,
         total: 99,
         timestamp: 4102329600000,
         adminPassword: "admin123",
-        conversionMode: "remote",
-        fallbackEnabled: true,
+        conversionMode: "native",
+        fallbackEnabled: false,
         nativeConverterEnabled: true,
-        remoteConverterUrl: "https://subc.00321.xyz",
+        remoteConverterUrl: "",
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
+        fixedInbounds: [],
       },
     };
     this.saveData();
@@ -450,10 +466,10 @@ class Database {
           total: 99,
           timestamp: 4102329600000,
           adminPassword: "",
-          conversionMode: "remote",
-          fallbackEnabled: true,
+          conversionMode: "native",
+          fallbackEnabled: false,
           nativeConverterEnabled: true,
-          remoteConverterUrl: "https://subc.00321.xyz",
+          remoteConverterUrl: "",
           remoteConverterProtocol: "https",
           defaultPreviewFormat: "ss",
         };

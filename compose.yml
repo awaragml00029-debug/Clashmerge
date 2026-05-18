@@ -1,11 +1,11 @@
 services:
   app:
-    image: node:18-alpine
-    container_name: subx
-    working_dir: /app
-    volumes:
-      - ./:/app
-    command: sh -c "npm install && node index.js"
+    build: .
+    image: clashmerge:local
+    container_name: clashmerge
     restart: always
     ports:
       - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs

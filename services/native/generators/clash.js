@@ -1,3 +1,4 @@
+const yaml = require("js-yaml");
 const BaseGenerator = require("./base");
 
 /**
@@ -5,6 +6,11 @@ const BaseGenerator = require("./base");
  * 输出格式: YAML 配置文件
  */
 class ClashGenerator extends BaseGenerator {
+  constructor(options = {}) {
+    super();
+    this.fixedInbounds = Array.isArray(options.fixedInbounds) ? options.fixedInbounds : [];
+  }
+
   /**
    * 生成 Clash 配置
    * @param {Array} nodes - 节点列表
@@ -34,8 +40,12 @@ class ClashGenerator extends BaseGenerator {
       rules: this.generateRules(),
     };
 
-    // 转换为 YAML (手动实现，避免依赖)
-    return this.toYAML(config);
+    const listeners = this.generateFixedListeners(proxies);
+    if (listeners.length > 0) {
+      config.listeners = listeners;
+    }
+
+    return yaml.dump(config, { lineWidth: -1, noRefs: true });
   }
 
   /**
@@ -189,6 +199,36 @@ class ClashGenerator extends BaseGenerator {
         interval: 300,
       },
     ];
+  }
+
+  generateFixedListeners(proxies) {
+    const proxyNames = new Set(proxies.map((proxy) => proxy.name));
+    const usedPorts = new Set();
+    const listeners = [];
+
+    for (const inbound of this.fixedInbounds) {
+      if (!inbound || inbound.enabled === false) continue;
+
+      const port = Number(inbound.port);
+      const proxyName = String(inbound.proxy || inbound.proxyName || "").trim();
+      if (!Number.isInteger(port) || port < 1 || port > 65535 || usedPorts.has(port)) continue;
+      if (!proxyName || !proxyNames.has(proxyName)) {
+        console.warn(`固定入口跳过: port=${port}, proxy=${proxyName || "empty"} 不存在`);
+        continue;
+      }
+
+      const type = ["http", "socks", "mixed"].includes(inbound.type) ? inbound.type : "mixed";
+      listeners.push({
+        name: inbound.name || `fixed-${port}`,
+        type,
+        listen: inbound.listen || "127.0.0.1",
+        port,
+        proxy: proxyName,
+      });
+      usedPorts.add(port);
+    }
+
+    return listeners;
   }
 
   /**
