@@ -57,6 +57,14 @@ function createConversionRoutes(db) {
             .slice(0, 12);
     }
 
+    function createLogId(value) {
+        return crypto
+            .createHash("sha1")
+            .update(String(value || ""))
+            .digest("hex")
+            .slice(0, 8);
+    }
+
     function getResponseHeaders(format, config, cacheState, cacheAge) {
         const isYaml = format === "clash";
         const fileName = String(config?.fileName || "ClashMerge").replace(/[\\/\r\n"]/g, "_");
@@ -84,8 +92,9 @@ function createConversionRoutes(db) {
      * @param {number} ttl - 缓存有效期（小时）
      */
     async function refreshInBackground(cacheKey, group, format, mode, ttl) {
+        const cacheLogId = createLogId(cacheKey);
         try {
-            console.log(`后台刷新缓存: ${cacheKey}`);
+            console.log(`后台刷新缓存: ${cacheLogId}`);
             cache.markRefreshing(cacheKey, true);
 
             // 执行订阅转换
@@ -93,9 +102,9 @@ function createConversionRoutes(db) {
 
             // 更新缓存
             cache.set(cacheKey, content, format, ttl);
-            console.log(`后台刷新完成: ${cacheKey}`);
+            console.log(`后台刷新完成: ${cacheLogId}`);
         } catch (error) {
-            console.error(`后台刷新失败: ${cacheKey}`, error);
+            console.error(`后台刷新失败: ${cacheLogId}`, error);
         } finally {
             cache.markRefreshing(cacheKey, false);
         }
@@ -110,9 +119,9 @@ function createConversionRoutes(db) {
      */
     async function fetchSubscriptionContent(group, format, mode) {
         const conversionStart = Date.now();
-        const maskedToken = group.token ? `${group.token.slice(0, 4)}***` : "empty";
+        const groupLogId = createLogId(group.token);
         console.log(
-            `[conversion-start] group=${group.name}, token=${maskedToken}, format=${format}, mode=${mode || "auto"}`
+            `[conversion-start] group=${group.name}, groupId=${groupLogId}, format=${format}, mode=${mode || "auto"}`
         );
 
         // 从数据库获取该分组下活跃的订阅和全局配置
@@ -204,7 +213,7 @@ function createConversionRoutes(db) {
             const mode = req.query.mode; // 获取转换模式参数
 
             console.log(
-                `[request-start][${requestId}] path=${req.params.path}, refresh=${forceRefresh}, mode=${mode || "auto"}`
+                `[request-start][${requestId}] pathId=${createLogId(req.params.path)}, refresh=${forceRefresh}, mode=${mode || "auto"}`
             );
 
             // 从数据库动态获取配置
@@ -250,11 +259,13 @@ function createConversionRoutes(db) {
 
             // 生成缓存key（包含分组 id、模式、脚本、导出配置和当前活跃订阅指纹）
             const cacheKey = cache.generateKey(group.token, 订阅格式, effectiveMode, `${extensionScriptHash}-${configHash}-${subscriptionsHash}`);
-            console.log(`生成缓存Key: ${cacheKey} (group=${group.name}, token=${group.token}, format=${订阅格式}, mode=${effectiveMode}, script=${extensionScriptHash}, config=${configHash}, subscriptions=${subscriptionsHash})`);
+            const cacheLogId = createLogId(cacheKey);
+            const groupLogId = createLogId(group.token);
+            console.log(`生成缓存Key: ${cacheLogId} (group=${group.name}, groupId=${groupLogId}, format=${订阅格式}, mode=${effectiveMode}, script=${extensionScriptHash}, config=${configHash}, subscriptions=${subscriptionsHash})`);
 
             // 打印缓存统计
             const stats = cache.getStats();
-            console.log(`当前缓存状态: 总数=${stats.size}, keys=${stats.keys.join(', ')}`);
+            console.log(`当前缓存状态: 总数=${stats.size}`);
 
             // 如果不是强制刷新，尝试从缓存获取
             if (!forceRefresh) {
@@ -264,7 +275,7 @@ function createConversionRoutes(db) {
                     const isValid = cache.isValid(cached);
                     const cacheAge = cache.getCacheAge(cached);
 
-                    console.log(`缓存命中: ${cacheKey}, isValid=${isValid}, age=${cacheAge}`);
+                    console.log(`缓存命中: ${cacheLogId}, isValid=${isValid}, age=${cacheAge}`);
 
                     // 立即返回缓存（即使过期）
                     res.set(getResponseHeaders(订阅格式, config, isValid ? "HIT" : "STALE", cacheAge));
@@ -285,10 +296,10 @@ function createConversionRoutes(db) {
 
             // 强制刷新或无缓存：同步获取
             if (forceRefresh) {
-                console.log(`强制刷新: 删除当前缓存, cacheKey=${cacheKey}`);
+                console.log(`强制刷新: 删除当前缓存, cacheKey=${cacheLogId}`);
                 cache.delete(cacheKey);
             } else {
-                console.log(`缓存未命中: ${cacheKey}`);
+                console.log(`缓存未命中: ${cacheLogId}`);
             }
 
             const subContent = await fetchSubscriptionContent(group, 订阅格式, effectiveMode);
@@ -296,7 +307,7 @@ function createConversionRoutes(db) {
             // 更新缓存
             cache.set(cacheKey, subContent, 订阅格式, currentSUBUpdateTime);
 
-            console.log(`准备发送响应: forceRefresh=${forceRefresh}, cacheKey=${cacheKey}`);
+            console.log(`准备发送响应: forceRefresh=${forceRefresh}, cacheKey=${cacheLogId}`);
             res.set(getResponseHeaders(订阅格式, config, forceRefresh ? "REFRESH" : "MISS", 0));
             console.log("Headers set:", res.getHeaders());
 

@@ -2,6 +2,7 @@
  * 原生订阅转换器
  * 主入口，负责协调订阅拉取、节点解析、格式生成
  */
+const crypto = require("crypto");
 const SubscriptionFetcher = require("./fetcher");
 const NodeMerger = require("./merger");
 const generators = require("./generators");
@@ -10,6 +11,14 @@ class NativeConverter {
   constructor() {
     this.fetcher = new SubscriptionFetcher();
     this.merger = new NodeMerger();
+  }
+
+  createLogId(value) {
+    return crypto
+      .createHash("sha1")
+      .update(String(value || ""))
+      .digest("hex")
+      .slice(0, 8);
   }
 
   /**
@@ -42,7 +51,7 @@ class NativeConverter {
 
       for (let i = 0; i < fetchResults.length; i++) {
         const r = fetchResults[i];
-        const shortUrl = r.url.replace(/token=[^&]+/, "token=***");
+        const sourceId = this.createLogId(r.url);
         const nodeCount = r.nodes.length;
         const failureCount = r.failures.length;
 
@@ -55,18 +64,18 @@ class NativeConverter {
               ? `, 解析失败 ${failureCount}`
               : "";
           console.log(
-            `  订阅 ${i + 1}: 成功 ${nodeCount} 个节点${failInfo} [${r.format}] ${shortUrl}`,
+            `  订阅 ${i + 1}: 成功 ${nodeCount} 个节点${failInfo} [${r.format}] source=${sourceId}`,
           );
           // 列出具体解析失败的条目
           if (failureCount > 0) {
             for (const f of r.failures) {
               const reason = f.reason ? ` | reason=${f.reason}` : "";
-              console.log(`    └─ [${f.protocol}] ${f.preview}${reason}`);
+              console.log(`    └─ [${f.protocol}] item=${this.createLogId(f.preview)}${reason}`);
             }
           }
         } else {
           failCount++;
-          console.error(`  订阅 ${i + 1}: 拉取失败 - ${r.error} ${shortUrl}`);
+          console.error(`  订阅 ${i + 1}: 拉取失败 - ${r.error} source=${sourceId}`);
           if (r.attempts && r.attempts.length > 0) {
             r.attempts.forEach(a => console.error(`    └─ ${a}`));
           }
