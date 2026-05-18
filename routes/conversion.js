@@ -43,6 +43,20 @@ function createConversionRoutes(db) {
             .slice(0, 12);
     }
 
+    function createSubscriptionsHash(subscriptions) {
+        return crypto
+            .createHash("sha1")
+            .update(JSON.stringify((subscriptions || []).map((sub) => ({
+                id: sub.id,
+                type: sub.type,
+                url: sub.url,
+                active: sub.active,
+                updated_at: sub.updated_at,
+            }))))
+            .digest("hex")
+            .slice(0, 12);
+    }
+
     function getResponseHeaders(format, config, cacheState, cacheAge) {
         const isYaml = format === "clash";
         const fileName = String(config?.fileName || "ClashMerge").replace(/[\\/\r\n"]/g, "_");
@@ -230,11 +244,13 @@ function createConversionRoutes(db) {
                 .digest("hex")
                 .slice(0, 12);
             const configHash = createConfigHash(config);
+            const activeSubscriptions = await db.getActiveSubscriptionsByGroup(group.id);
+            const subscriptionsHash = createSubscriptionsHash(activeSubscriptions);
             const effectiveMode = "native";
 
-            // 生成缓存key（包含分组 id、模式、脚本和导出配置指纹）
-            const cacheKey = cache.generateKey(group.token, 订阅格式, effectiveMode, `${extensionScriptHash}-${configHash}`);
-            console.log(`生成缓存Key: ${cacheKey} (group=${group.name}, token=${group.token}, format=${订阅格式}, mode=${effectiveMode}, script=${extensionScriptHash}, config=${configHash})`);
+            // 生成缓存key（包含分组 id、模式、脚本、导出配置和当前活跃订阅指纹）
+            const cacheKey = cache.generateKey(group.token, 订阅格式, effectiveMode, `${extensionScriptHash}-${configHash}-${subscriptionsHash}`);
+            console.log(`生成缓存Key: ${cacheKey} (group=${group.name}, token=${group.token}, format=${订阅格式}, mode=${effectiveMode}, script=${extensionScriptHash}, config=${configHash}, subscriptions=${subscriptionsHash})`);
 
             // 打印缓存统计
             const stats = cache.getStats();
