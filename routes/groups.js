@@ -39,6 +39,12 @@ function summarizeMihomoConfigObject(config) {
       listen: String(listener?.listen || ""),
       port: Number(listener?.port),
       proxy: String(listener?.proxy || ""),
+      users: Array.isArray(listener?.users)
+        ? listener.users.map((user) => ({
+            username: String(user?.username || ""),
+            password: String(user?.password || ""),
+          }))
+        : [],
     }))
     .filter((listener) => Number.isInteger(listener.port) && listener.port > 0);
   return {
@@ -68,6 +74,16 @@ function summarizeFixedInbounds(fixedInbounds) {
     listen: String(inbound.listen || "0.0.0.0"),
     port: Number(inbound.port),
     proxy: String(inbound.proxy || inbound.proxyName || "").trim(),
+  }));
+}
+
+function sanitizeListeners(listeners) {
+  return listeners.map((listener) => ({
+    name: listener.name,
+    type: listener.type,
+    listen: listener.listen,
+    port: listener.port,
+    proxy: listener.proxy,
   }));
 }
 
@@ -300,35 +316,35 @@ function createGroupRoutes(db) {
         testUrl: config.mihomoTestUrl,
       });
       await mihomo.pushConfig(content, { force: true });
-      const targetSummary = summarizeMihomoConfigObject(await mihomo.getConfig());
-      const missingListeners = getMissingListeners(summary.listeners, targetSummary.listeners);
-      if (missingListeners.length > 0) {
+      const targetChecks = await mihomo.verifyListeners(summary.listeners);
+      const failedChecks = targetChecks.filter((check) => !check.alive);
+      if (failedChecks.length > 0) {
         return res.status(502).json({
-          error: "Mihomo 已接收配置，但目标运行配置未加载预期固定入口 listeners。",
+          error: "Mihomo 已接收配置，但目标固定入口端口校验失败。",
           apiUrl: config.mihomoApiUrl,
           generatedListenerCount: summary.listenerCount,
           generatedListenerPorts: summary.listenerPorts,
-          generatedListeners: summary.listeners,
-          targetListenerCount: targetSummary.listenerCount,
-          targetListenerPorts: targetSummary.listenerPorts,
-          targetListeners: targetSummary.listeners,
-          missingListeners,
+          generatedListeners: sanitizeListeners(summary.listeners),
+          targetListenerCount: targetChecks.length - failedChecks.length,
+          targetListenerPorts: targetChecks.filter((check) => check.alive).map((check) => check.port),
+          targetChecks,
+          missingListeners: sanitizeListeners(failedChecks),
           skippedListeners,
         });
       }
 
       res.json({
-        message: "已推送到 Mihomo，并确认目标已加载固定入口",
+        message: "已推送到 Mihomo，并确认目标固定入口端口可用",
         apiUrl: config.mihomoApiUrl,
         bytes: Buffer.byteLength(content),
         listenerCount: summary.listenerCount,
         listenerPorts: summary.listenerPorts,
-        listeners: summary.listeners,
+        listeners: sanitizeListeners(summary.listeners),
         skippedListenerCount: skippedListeners.length,
         skippedListeners,
-        targetListenerCount: targetSummary.listenerCount,
-        targetListenerPorts: targetSummary.listenerPorts,
-        targetListeners: targetSummary.listeners,
+        targetListenerCount: targetChecks.length,
+        targetListenerPorts: targetChecks.map((check) => check.port),
+        targetChecks,
       });
     } catch (error) {
       console.error("推送 Mihomo 配置失败:", error);

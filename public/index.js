@@ -2175,7 +2175,13 @@ class GroupManager {
               details.push(`目标端口：${result.targetListenerPorts.join(", ") || "无"}`);
             }
             if (Array.isArray(result.missingListeners) && result.missingListeners.length > 0) {
-              details.push(`缺失绑定：${result.missingListeners.map((listener) => `${listener.port}->${listener.proxy}`).join(", ")}`);
+              details.push(`失败绑定：${result.missingListeners.map((listener) => `${listener.port}->${listener.proxy}`).join(", ")}`);
+            }
+            if (Array.isArray(result.targetChecks)) {
+              const failedChecks = result.targetChecks.filter((check) => !check.alive);
+              if (failedChecks.length > 0) {
+                details.push(`失败原因：${failedChecks.map((check) => `${check.port} ${check.error || "不可用"}`).join(", ")}`);
+              }
             }
             throw new Error([result.error || "推送失败", ...details].join("；"));
           }
@@ -2183,7 +2189,7 @@ class GroupManager {
           const skipped = Array.isArray(result.skippedListeners) && result.skippedListeners.length > 0
             ? `；跳过 ${result.skippedListeners.length} 个失效绑定：${result.skippedListeners.map((listener) => `${listener.port}->${listener.proxy}`).join(", ")}`
             : "";
-          createGlobalToast(`已推送到 Mihomo，并确认目标加载 ${result.targetListenerCount || 0} 个固定入口${ports ? `：${ports}` : ""}${skipped}。`, "success");
+          createGlobalToast(`已推送到 Mihomo，并确认目标 ${result.targetListenerCount || 0} 个固定入口端口可用${ports ? `：${ports}` : ""}${skipped}。`, "success");
         } catch (error) {
           createGlobalToast(`推送失败：${error.message}`, "error");
         }

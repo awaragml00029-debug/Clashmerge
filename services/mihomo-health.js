@@ -1,4 +1,5 @@
 const fs = require("fs");
+const net = require("net");
 const path = require("path");
 
 class MihomoHealthService {
@@ -72,6 +73,185 @@ class MihomoHealthService {
       throw new Error(data.message || `Mihomo API /configs 返回 ${response.status}`);
     }
     return data;
+  }
+
+  getApiHostname() {
+    try {
+      const url = new URL(this.apiUrl.includes("://") ? this.apiUrl : `http://${this.apiUrl}`);
+      return url.hostname;
+    } catch {
+      return this.apiUrl.replace(/^https?:\/\//, "").split("/")[0].split(":")[0].trim();
+    }
+  }
+
+  getVerificationHost() {
+    const host = this.getApiHostname();
+    return ["0.0.0.0", "::", ""].includes(host) ? "127.0.0.1" : host;
+  }
+
+  async verifyListeners(listeners) {
+    const results = [];
+    await this.runLimited(listeners, async (listener) => {
+      results.push(await this.verifyListener(listener));
+    });
+    return results.sort((a, b) => a.port - b.port);
+  }
+
+  async verifyListener(listener) {
+    const port = Number(listener?.port);
+    const type = String(listener?.type || "mixed").toLowerCase();
+    const host = this.getVerificationHost();
+    const result = {
+      name: String(listener?.name || ""),
+      type,
+      listen: String(listener?.listen || ""),
+      port,
+      proxy: String(listener?.proxy || ""),
+      host,
+      alive: false,
+      protocol: ["mixed", "socks"].includes(type) ? "socks5" : "tcp",
+      error: null,
+    };
+
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      return { ...result, error: "监听端口无效" };
+    }
+
+    if (["mixed", "socks"].includes(type)) {
+      const user = Array.isArray(listener?.users) ? listener.users[0] : null;
+      return {
+        ...result,
+        ...(await this.testSocks5Listener(
+          host,
+          port,
+          String(user?.username || ""),
+          String(user?.password || ""),
+        )),
+      };
+    }
+
+    return { ...result, ...(await this.testTcpPort(host, port)) };
+  }
+
+  async testTcpPort(host, port) {
+    return new Promise((resolve) => {
+      const socket = net.createConnection({ host, port });
+      let finished = false;
+      const finish = (result) => {
+        if (finished) return;
+        finished = true;
+        socket.destroy();
+        resolve(result);
+      };
+      socket.setTimeout(this.timeout);
+      socket.once("connect", () => finish({ alive: true, protocol: "tcp", error: null }));
+      socket.once("timeout", () => finish({ alive: false, protocol: "tcp", error: "连接超时" }));
+      socket.once("error", (error) => finish({ alive: false, protocol: "tcp", error: error.message }));
+    });
+  }
+
+  async testSocks5Listener(host, port, username, password) {
+    let socket;
+    try {
+      socket = await this.openSocket(host, port);
+      const methods = username && password ? [0x00, 0x02] : [0x00];
+      socket.write(Buffer.from([0x05, methods.length, ...methods]));
+      const methodResponse = await this.readSocketBytes(socket, 2);
+      if (methodResponse[0] !== 0x05) {
+        throw new Error("SOCKS5 握手响应无效");
+      }
+      if (methodResponse[1] === 0xff) {
+        throw new Error("SOCKS5 不接受当前认证方式");
+      }
+      if (methodResponse[1] === 0x02) {
+        const usernameBuffer = Buffer.from(username, "utf8");
+        const passwordBuffer = Buffer.from(password, "utf8");
+        if (usernameBuffer.length > 255 || passwordBuffer.length > 255) {
+          throw new Error("SOCKS5 用户名或密码过长");
+        }
+        socket.write(Buffer.concat([
+          Buffer.from([0x01, usernameBuffer.length]),
+          usernameBuffer,
+          Buffer.from([passwordBuffer.length]),
+          passwordBuffer,
+        ]));
+        const authResponse = await this.readSocketBytes(socket, 2);
+        if (authResponse[0] !== 0x01 || authResponse[1] !== 0x00) {
+          throw new Error("SOCKS5 用户名或密码认证失败");
+        }
+      }
+      socket.end();
+      return { alive: true, protocol: "socks5", error: null };
+    } catch (error) {
+      if (socket) socket.destroy();
+      return { alive: false, protocol: "socks5", error: error.message };
+    }
+  }
+
+  openSocket(host, port) {
+    return new Promise((resolve, reject) => {
+      const socket = net.createConnection({ host, port });
+      const cleanup = () => {
+        socket.off("connect", onConnect);
+        socket.off("timeout", onTimeout);
+        socket.off("error", onError);
+      };
+      const onConnect = () => {
+        cleanup();
+        resolve(socket);
+      };
+      const onTimeout = () => {
+        cleanup();
+        socket.destroy();
+        reject(new Error("连接超时"));
+      };
+      const onError = (error) => {
+        cleanup();
+        socket.destroy();
+        reject(error);
+      };
+      socket.setTimeout(this.timeout);
+      socket.once("connect", onConnect);
+      socket.once("timeout", onTimeout);
+      socket.once("error", onError);
+    });
+  }
+
+  readSocketBytes(socket, length) {
+    return new Promise((resolve, reject) => {
+      const chunks = [];
+      let totalLength = 0;
+      const cleanup = () => {
+        socket.off("data", onData);
+        socket.off("timeout", onTimeout);
+        socket.off("error", onError);
+        socket.off("close", onClose);
+      };
+      const onData = (chunk) => {
+        chunks.push(chunk);
+        totalLength += chunk.length;
+        if (totalLength >= length) {
+          cleanup();
+          resolve(Buffer.concat(chunks, totalLength).subarray(0, length));
+        }
+      };
+      const onTimeout = () => {
+        cleanup();
+        reject(new Error("读取响应超时"));
+      };
+      const onError = (error) => {
+        cleanup();
+        reject(error);
+      };
+      const onClose = () => {
+        cleanup();
+        reject(new Error("连接已关闭"));
+      };
+      socket.once("timeout", onTimeout);
+      socket.once("error", onError);
+      socket.once("close", onClose);
+      socket.on("data", onData);
+    });
   }
 
   async getProxyNames() {
