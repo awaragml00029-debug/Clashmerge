@@ -1475,36 +1475,41 @@ class ConfigManager {
     this.renderFixedInbounds();
   }
 
-  async testFixedInboundNodes() {
+  async refreshFixedInboundNodeHealth() {
     const currentGroupId = groupManager.currentGroup?.id;
     if (!currentGroupId) {
-      this.showMessage("请先选择一个分组。", "error");
-      return;
+      throw new Error("请先选择一个分组。");
     }
 
-    try {
-      if (!this.nodeOptions.length || this.nodeOptionsGroupId !== String(currentGroupId)) {
-        await this.loadNodeOptions({ silent: true });
-      }
-      const payload = this.nodeOptions.length
-        ? { names: this.nodeOptions.map((node) => node.name) }
-        : {};
-      const response = await fetch(`/api/groups/${currentGroupId}/nodes/health`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || "Mihomo 节点测速失败");
-      }
+    if (!this.nodeOptions.length || this.nodeOptionsGroupId !== String(currentGroupId)) {
+      await this.loadNodeOptions({ silent: true });
+    }
+    const payload = this.nodeOptions.length
+      ? { names: this.nodeOptions.map((node) => node.name) }
+      : {};
+    const response = await fetch(`/api/groups/${currentGroupId}/nodes/health`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || "Mihomo 节点测速失败");
+    }
 
-      this.nodeOptions = Array.isArray(result.nodes) ? result.nodes : [];
-      this.renderFixedInbounds();
-      const alive = this.nodeOptions.filter((node) => node.health?.alive).length;
-      const underDelay = this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, this.getMaxDelay())).length;
-      const checked = this.nodeOptions.filter((node) => node.health).length;
-      this.showMessage(`测速完成：已检测 ${checked} 个节点，可用 ${alive} 个，低于 ${this.getMaxDelay()}ms 的 ${underDelay} 个。`, "success");
+    this.nodeOptions = Array.isArray(result.nodes) ? result.nodes : [];
+    this.nodeOptionsGroupId = String(currentGroupId);
+    this.renderFixedInbounds();
+    const alive = this.nodeOptions.filter((node) => node.health?.alive).length;
+    const underDelay = this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, this.getMaxDelay())).length;
+    const checked = this.nodeOptions.filter((node) => node.health).length;
+    return { alive, underDelay, checked };
+  }
+
+  async testFixedInboundNodes() {
+    try {
+      const stats = await this.refreshFixedInboundNodeHealth();
+      this.showMessage(`测速完成：已检测 ${stats.checked} 个节点，可用 ${stats.alive} 个，低于 ${this.getMaxDelay()}ms 的 ${stats.underDelay} 个。`, "success");
     } catch (error) {
       this.showMessage(`测速失败：${error.message}`, "error");
     }
@@ -1520,7 +1525,7 @@ class ConfigManager {
     return Boolean(node?.health?.alive) && Number.isFinite(delay) && delay > 0 && delay <= maxDelay;
   }
 
-  addRandomFixedInbounds() {
+  async addRandomFixedInbounds() {
     const count = parseInt(document.getElementById("fixedRandomCount")?.value, 10);
     const startPort = parseInt(document.getElementById("fixedRandomStartPort")?.value, 10);
     const endPort = parseInt(document.getElementById("fixedRandomEndPort")?.value, 10);
@@ -1534,56 +1539,74 @@ class ConfigManager {
       this.showMessage("端口范围必须在 1-65535 内，且起始端口不能大于结束端口。", "error");
       return;
     }
-    if (!this.nodeOptions.length) {
-      this.showMessage("当前分组没有可选节点，请先点击“刷新节点”。", "error");
-      return;
-    }
 
-    const onlyHealthy = document.getElementById("fixedOnlyHealthy")?.checked !== false;
-    const candidateNodes = onlyHealthy
-      ? this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, maxDelay))
-      : this.nodeOptions;
+    try {
+      const currentGroupId = groupManager.currentGroup?.id;
+      if (!currentGroupId) {
+        this.showMessage("请先选择一个分组。", "error");
+        return;
+      }
+      if (!this.nodeOptions.length || this.nodeOptionsGroupId !== String(currentGroupId)) {
+        await this.loadNodeOptions({ silent: true });
+      }
+      if (!this.nodeOptions.length) {
+        this.showMessage("当前分组没有可选节点。", "error");
+        return;
+      }
 
-    if (!candidateNodes.length) {
-      this.showMessage(onlyHealthy ? `没有已缓存且低于 ${maxDelay}ms 的可用节点，请先点击“检测可用节点”或调高最大延迟。` : "当前分组没有可选节点。", "error");
-      return;
-    }
-    if (candidateNodes.length < count) {
-      this.showMessage(`符合条件的节点只有 ${candidateNodes.length} 个，不能生成 ${count} 个不重复固定入口。请减少数量或调高最大延迟。`, "error");
-      return;
-    }
+      const onlyHealthy = document.getElementById("fixedOnlyHealthy")?.checked !== false;
+      let checked = 0;
+      if (onlyHealthy) {
+        this.showMessage("正在检测当前分组全部节点后再随机生成固定入口...", "success");
+        checked = (await this.refreshFixedInboundNodeHealth()).checked;
+      }
+      const candidateNodes = onlyHealthy
+        ? this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, maxDelay))
+        : this.nodeOptions;
 
-    const availablePorts = [];
-    for (let port = startPort; port <= endPort; port += 1) {
-      availablePorts.push(port);
-    }
+      if (!candidateNodes.length) {
+        this.showMessage(onlyHealthy ? `已检测 ${checked} 个节点，没有低于 ${maxDelay}ms 的可用节点。请调高最大延迟或取消“仅可用”。` : "当前分组没有可选节点。", "error");
+        return;
+      }
+      if (candidateNodes.length < count) {
+        this.showMessage(`已检测 ${checked || this.nodeOptions.length} 个节点，符合条件的节点只有 ${candidateNodes.length} 个，不能生成 ${count} 个不重复固定入口。请减少数量或调高最大延迟。`, "error");
+        return;
+      }
 
-    if (availablePorts.length < count) {
-      this.showMessage("端口范围内可用端口数量不足。", "error");
-      return;
-    }
+      const availablePorts = [];
+      for (let port = startPort; port <= endPort; port += 1) {
+        availablePorts.push(port);
+      }
 
-    const shuffledNodes = this.shuffle([...candidateNodes].sort((a, b) => Number(a.health?.delay || Infinity) - Number(b.health?.delay || Infinity)));
-    const nextRows = [];
-    for (let index = 0; index < count; index += 1) {
-      const port = availablePorts[index];
-      const node = shuffledNodes[index];
-      nextRows.push({
-        enabled: true,
-        name: `fixed-${port}`,
-        port,
-        type: "mixed",
-        listen: "0.0.0.0",
-        proxy: node.name,
-        username: `u${port}`,
-        password: this.generateFixedCredential("p", 18),
-      });
-    }
+      if (availablePorts.length < count) {
+        this.showMessage("端口范围内可用端口数量不足。", "error");
+        return;
+      }
 
-    this.fixedInbounds = nextRows;
-    this.renderFixedInbounds();
-    this.copyFixedLinks().catch((error) => console.error("Copy fixed links failed:", error));
-    this.showMessage(`已替换为 ${nextRows.length} 个固定入口，节点来自 ${candidateNodes.length} 个低于 ${maxDelay}ms 的候选，并生成 SOCKS 链接。`, "success");
+      const shuffledNodes = this.shuffle([...candidateNodes].sort((a, b) => Number(a.health?.delay || Infinity) - Number(b.health?.delay || Infinity)));
+      const nextRows = [];
+      for (let index = 0; index < count; index += 1) {
+        const port = availablePorts[index];
+        const node = shuffledNodes[index];
+        nextRows.push({
+          enabled: true,
+          name: `fixed-${port}`,
+          port,
+          type: "mixed",
+          listen: "0.0.0.0",
+          proxy: node.name,
+          username: `u${port}`,
+          password: this.generateFixedCredential("p", 18),
+        });
+      }
+
+      this.fixedInbounds = nextRows;
+      this.renderFixedInbounds();
+      this.copyFixedLinks().catch((error) => console.error("Copy fixed links failed:", error));
+      this.showMessage(`已从当前分组 ${checked || this.nodeOptions.length} 个节点中筛出 ${candidateNodes.length} 个低于 ${maxDelay}ms 的候选，并替换为 ${nextRows.length} 个固定入口。`, "success");
+    } catch (error) {
+      this.showMessage(`随机生成失败：${error.message}`, "error");
+    }
   }
 
   generateFixedCredential(prefix, length = 12) {
