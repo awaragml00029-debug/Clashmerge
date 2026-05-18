@@ -1251,6 +1251,8 @@ class ConfigManager {
         </select>
         <input type="text" data-fixed-field="listen" data-index="${index}" value="${escapeHtml(inbound.listen || "127.0.0.1")}" placeholder="监听地址" />
         <input type="text" list="fixedInboundProxyOptions" data-fixed-field="proxy" data-index="${index}" value="${escapeHtml(inbound.proxy || inbound.proxyName || "")}" placeholder="输入或选择节点名" />
+        <input type="text" data-fixed-field="username" data-index="${index}" value="${escapeHtml(inbound.username || "")}" placeholder="用户名" />
+        <input type="text" data-fixed-field="password" data-index="${index}" value="${escapeHtml(inbound.password || "")}" placeholder="密码" />
         <button type="button" class="btn btn-danger btn-sm" onclick="configManager.removeFixedInboundRow(${index})">删除</button>
       </div>
     `).join("");
@@ -1280,8 +1282,78 @@ class ConfigManager {
       type: "mixed",
       listen: "127.0.0.1",
       proxy: "",
+      username: this.generateFixedCredential("u"),
+      password: this.generateFixedCredential("p", 18),
     });
     this.renderFixedInbounds();
+  }
+
+  addRandomFixedInbounds() {
+    const count = parseInt(document.getElementById("fixedRandomCount")?.value, 10);
+    const startPort = parseInt(document.getElementById("fixedRandomStartPort")?.value, 10);
+    const endPort = parseInt(document.getElementById("fixedRandomEndPort")?.value, 10);
+
+    if (!Number.isInteger(count) || count < 1 || count > 100) {
+      this.showMessage("随机数量必须是 1-100 的整数。", "error");
+      return;
+    }
+    if (!Number.isInteger(startPort) || !Number.isInteger(endPort) || startPort < 1 || endPort > 65535 || startPort > endPort) {
+      this.showMessage("端口范围必须在 1-65535 内，且起始端口不能大于结束端口。", "error");
+      return;
+    }
+    if (!this.nodeOptions.length) {
+      this.showMessage("当前分组没有可选节点，请先刷新节点。", "error");
+      return;
+    }
+
+    const usedPorts = new Set(this.fixedInbounds.map((inbound) => Number(inbound.port)).filter(Number.isInteger));
+    const availablePorts = [];
+    for (let port = startPort; port <= endPort; port += 1) {
+      if (!usedPorts.has(port)) availablePorts.push(port);
+    }
+
+    if (availablePorts.length < count) {
+      this.showMessage("端口范围内可用端口数量不足。", "error");
+      return;
+    }
+
+    const shuffledNodes = this.shuffle([...this.nodeOptions]);
+    const nextRows = [];
+    for (let index = 0; index < count; index += 1) {
+      const port = availablePorts[index];
+      const node = shuffledNodes[index % shuffledNodes.length];
+      nextRows.push({
+        enabled: true,
+        name: `fixed-${port}`,
+        port,
+        type: "mixed",
+        listen: "127.0.0.1",
+        proxy: node.name,
+        username: `u${port}`,
+        password: this.generateFixedCredential("p", 18),
+      });
+    }
+
+    this.fixedInbounds.push(...nextRows);
+    this.renderFixedInbounds();
+    this.showMessage(`已随机生成 ${nextRows.length} 个固定入口。`, "success");
+  }
+
+  generateFixedCredential(prefix, length = 12) {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const values = new Uint32Array(length);
+    crypto.getRandomValues(values);
+    const body = Array.from(values, (value) => alphabet[value % alphabet.length]).join("");
+    return `${prefix}${body}`;
+  }
+
+  shuffle(items) {
+    for (let index = items.length - 1; index > 0; index -= 1) {
+      const random = crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+      const swapIndex = Math.floor(random * (index + 1));
+      [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+    }
+    return items;
   }
 
   removeFixedInboundRow(index) {
@@ -1299,6 +1371,8 @@ class ConfigManager {
         type: ["mixed", "http", "socks"].includes(inbound.type) ? inbound.type : "mixed",
         listen: String(inbound.listen || "127.0.0.1").trim() || "127.0.0.1",
         proxy: String(inbound.proxy || inbound.proxyName || "").trim(),
+        username: String(inbound.username || "").trim(),
+        password: String(inbound.password || "").trim(),
       }))
       .filter((inbound) => {
         if (!inbound.enabled && !inbound.port && !inbound.proxy) return false;
@@ -1310,6 +1384,9 @@ class ConfigManager {
         }
         if (!inbound.proxy) {
           throw new Error("固定入口绑定节点不能为空。");
+        }
+        if ((inbound.username && !inbound.password) || (!inbound.username && inbound.password)) {
+          throw new Error("固定入口用户名和密码必须同时填写。");
         }
         ports.add(inbound.port);
         return true;

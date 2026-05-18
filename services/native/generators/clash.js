@@ -18,14 +18,7 @@ class ClashGenerator extends BaseGenerator {
    */
   generate(nodes) {
     const validNodes = this.filterValidNodes(nodes);
-    const proxies = [];
-
-    for (const node of validNodes) {
-      const proxy = this.convertToProxy(node);
-      if (proxy) {
-        proxies.push(proxy);
-      }
-    }
+    const proxies = this.generateProxies(validNodes);
 
     // 构建 Clash 配置
     const config = {
@@ -46,6 +39,35 @@ class ClashGenerator extends BaseGenerator {
     }
 
     return yaml.dump(config, { lineWidth: -1, noRefs: true });
+  }
+
+  generateProxies(nodes) {
+    const proxies = [];
+    const usedNames = new Set();
+
+    for (const node of nodes) {
+      const proxy = this.convertToProxy(node);
+      if (proxy) {
+        proxy.name = this.createUniqueProxyName(proxy.name, usedNames);
+        proxies.push(proxy);
+      }
+    }
+
+    return proxies;
+  }
+
+  createUniqueProxyName(name, usedNames) {
+    const baseName = String(name || "未命名节点").trim() || "未命名节点";
+    let uniqueName = baseName;
+    let index = 2;
+
+    while (usedNames.has(uniqueName)) {
+      uniqueName = `${baseName} #${index}`;
+      index += 1;
+    }
+
+    usedNames.add(uniqueName);
+    return uniqueName;
   }
 
   /**
@@ -218,13 +240,19 @@ class ClashGenerator extends BaseGenerator {
       }
 
       const type = ["http", "socks", "mixed"].includes(inbound.type) ? inbound.type : "mixed";
-      listeners.push({
+      const listener = {
         name: inbound.name || `fixed-${port}`,
         type,
         listen: inbound.listen || "127.0.0.1",
         port,
         proxy: proxyName,
-      });
+      };
+      const username = String(inbound.username || "").trim();
+      const password = String(inbound.password || "").trim();
+      if (username && password) {
+        listener.users = [{ username, password }];
+      }
+      listeners.push(listener);
       usedPorts.add(port);
     }
 

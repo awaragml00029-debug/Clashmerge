@@ -211,8 +211,12 @@
                   <label>固定入口映射</label>
                   <div class="form-help">用于 Mihomo/Clash.Meta：一个本地端口固定绑定一个节点，例如 10991 → 美国1节点。</div>
                 </div>
-                <div class="section-actions">
+                <div class="section-actions fixed-random-actions">
+                  <input type="number" id="fixedRandomCount" min="1" max="100" placeholder="数量" />
+                  <input type="number" id="fixedRandomStartPort" min="1" max="65535" placeholder="起始端口" />
+                  <input type="number" id="fixedRandomEndPort" min="1" max="65535" placeholder="结束端口" />
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.loadConfig()">刷新节点</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.addRandomFixedInbounds()">随机生成</button>
                   <button type="button" class="btn btn-primary btn-sm" onclick="configManager.addFixedInboundRow()">新增映射</button>
                 </div>
               </div>

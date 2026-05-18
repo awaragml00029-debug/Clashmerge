@@ -1,5 +1,6 @@
 const express = require("express");
 const NativeConverter = require("../services/native");
+const { ClashGenerator } = require("../services/native/generators");
 const router = express.Router();
 
 function expandSubscriptionUrls(subscriptions) {
@@ -126,11 +127,12 @@ function createGroupRoutes(db) {
 
       const converter = new NativeConverter();
       const result = await converter.listNodes(urls);
-      const nodes = result.nodes.map((node) => ({
-        name: node.name || "",
-        type: node.type || "",
-        server: node.server || "",
-        port: node.port || "",
+      const generator = new ClashGenerator();
+      const nodes = generator.generateProxies(result.nodes).map((proxy) => ({
+        name: proxy.name || "",
+        type: proxy.type || "",
+        server: proxy.server || "",
+        port: proxy.port || "",
       }));
 
       res.json({ nodes, failures: result.failures, stats: result.stats });

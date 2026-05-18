@@ -14,6 +14,8 @@ function normalizeFixedInbounds(value) {
             const listen = String(item?.listen || "127.0.0.1").trim() || "127.0.0.1";
             const name = String(item?.name || `fixed-${port}`).trim();
             const enabled = item?.enabled !== false;
+            const username = String(item?.username || "").trim();
+            const password = String(item?.password || "").trim();
 
             if (!Number.isInteger(port) || port < 1 || port > 65535) {
                 throw new Error("固定入口端口必须是 1-65535 的整数");
@@ -27,9 +29,15 @@ function normalizeFixedInbounds(value) {
             if (proxy.length > 200) {
                 throw new Error("固定入口绑定节点名称过长");
             }
+            if ((username && !password) || (!username && password)) {
+                throw new Error("固定入口用户名和密码必须同时填写");
+            }
+            if (username.length > 100 || password.length > 100) {
+                throw new Error("固定入口用户名或密码过长");
+            }
 
             usedPorts.add(port);
-            return { enabled, name, type, listen, port, proxy };
+            return { enabled, name, type, listen, port, proxy, username, password };
         });
 }
 
