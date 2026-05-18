@@ -4,6 +4,7 @@ services:
   app:
     image: ghcr.io/awaragml00029-debug/clashmerge:latest
     container_name: clashmerge
+    user: "0:0"
     restart: always
     ports:
       - "3000:3000"
