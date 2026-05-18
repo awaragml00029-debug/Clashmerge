@@ -2,6 +2,7 @@ const express = require("express");
 const NativeConverter = require("../services/native");
 const { ClashGenerator } = require("../services/native/generators");
 const MihomoHealthService = require("../services/mihomo-health");
+const { applyExtensionScriptToContent, getExtensionScript } = require("../services/extension-script");
 const router = express.Router();
 
 function expandSubscriptionUrls(subscriptions) {
@@ -20,6 +21,12 @@ function expandSubscriptionUrls(subscriptions) {
     }
   }
   return urls;
+}
+
+function normalizeFixedInbounds(config) {
+  return Array.isArray(config?.fixedInbounds)
+    ? config.fixedInbounds.filter((inbound) => inbound && inbound.enabled !== false)
+    : [];
 }
 
 async function getGroupNodeOptions(db, groupId) {
@@ -41,6 +48,29 @@ async function getGroupNodeOptions(db, groupId) {
   }));
 
   return { nodes, failures: result.failures, stats: result.stats };
+}
+
+async function generateGroupMihomoConfig(db, groupId) {
+  const [subscriptions, config] = await Promise.all([
+    db.getActiveSubscriptionsByGroup(groupId),
+    db.getConfig(),
+  ]);
+  const urls = expandSubscriptionUrls(subscriptions);
+  if (urls.length === 0) {
+    throw new Error("当前分组没有启用的订阅或节点列表");
+  }
+
+  const converter = new NativeConverter();
+  const content = await converter.convert(urls, "clash", {
+    fixedInbounds: normalizeFixedInbounds(config),
+  });
+
+  return applyExtensionScriptToContent(
+    getExtensionScript(),
+    content,
+    "clash",
+    config.fileName || "ClashMerge",
+  );
 }
 
 /**
@@ -183,6 +213,33 @@ function createGroupRoutes(db) {
     } catch (error) {
       console.error("Mihomo 节点测速失败:", error);
       res.status(500).json({ error: error.message || "Mihomo 节点测速失败" });
+    }
+  });
+
+  // 推送当前分组生成的 Mihomo 配置到已配置的测试 Mihomo
+  router.post("/api/groups/:id/mihomo/push", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const config = await db.getConfig();
+      if (!String(config.mihomoApiUrl || "").trim()) {
+        return res.status(400).json({ error: "请先在系统配置中填写 Mihomo API 地址" });
+      }
+
+      const content = await generateGroupMihomoConfig(db, id);
+      const mihomo = new MihomoHealthService({
+        apiUrl: config.mihomoApiUrl,
+        secret: config.mihomoSecret,
+        testUrl: config.mihomoTestUrl,
+      });
+      await mihomo.pushConfig(content, { force: true });
+      res.json({
+        message: "已推送到 Mihomo",
+        apiUrl: config.mihomoApiUrl,
+        bytes: Buffer.byteLength(content),
+      });
+    } catch (error) {
+      console.error("推送 Mihomo 配置失败:", error);
+      res.status(500).json({ error: error.message || "推送 Mihomo 配置失败" });
     }
   });
 

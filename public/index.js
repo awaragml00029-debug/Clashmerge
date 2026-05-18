@@ -1548,6 +1548,10 @@ class ConfigManager {
       this.showMessage(onlyHealthy ? `没有已缓存且低于 ${maxDelay}ms 的可用节点，请先点击“检测可用节点”或调高最大延迟。` : "当前分组没有可选节点。", "error");
       return;
     }
+    if (candidateNodes.length < count) {
+      this.showMessage(`符合条件的节点只有 ${candidateNodes.length} 个，不能生成 ${count} 个不重复固定入口。请减少数量或调高最大延迟。`, "error");
+      return;
+    }
 
     const usedPorts = new Set(this.fixedInbounds.map((inbound) => Number(inbound.port)).filter(Number.isInteger));
     const availablePorts = [];
@@ -1564,7 +1568,7 @@ class ConfigManager {
     const nextRows = [];
     for (let index = 0; index < count; index += 1) {
       const port = availablePorts[index];
-      const node = shuffledNodes[index % shuffledNodes.length];
+      const node = shuffledNodes[index];
       nextRows.push({
         enabled: true,
         name: `fixed-${port}`,
@@ -2145,6 +2149,33 @@ class GroupManager {
     } catch (error) {
       createGlobalToast(`绑定失败：${error.message}`, "error");
     }
+  }
+
+  pushCurrentGroupToMihomo() {
+    if (!this.currentGroup) {
+      createGlobalToast("请先选择一个分组。", "error");
+      return;
+    }
+
+    const apiUrl = configManager.currentConfig?.mihomoApiUrl || "系统配置中的 Mihomo API 地址";
+    openConfirmModal(
+      "推送到 Mihomo",
+      `确定要把当前分组「${escapeHtml(this.currentGroup.name)}」生成的 Mihomo 配置推送到「${escapeHtml(apiUrl)}」吗？这会替换该 Mihomo 当前运行配置。`,
+      async () => {
+        try {
+          const response = await fetch(`/api/groups/${this.currentGroup.id}/mihomo/push`, {
+            method: "POST",
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || "推送失败");
+          }
+          createGlobalToast(`已推送到 Mihomo，配置大小 ${Math.round((result.bytes || 0) / 1024)} KB。`, "success");
+        } catch (error) {
+          createGlobalToast(`推送失败：${error.message}`, "error");
+        }
+      }
+    );
   }
 
   detachSubscription(subscriptionId, name) {

@@ -47,6 +47,22 @@ class MihomoHealthService {
     });
   }
 
+  async pushConfig(payload, { force = true } = {}) {
+    const response = await fetch(`${this.apiUrl}/configs${force ? "?force=true" : ""}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...this.getHeaders(),
+      },
+      body: JSON.stringify({ path: "", payload }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || `Mihomo API /configs 返回 ${response.status}`);
+    }
+    return data;
+  }
+
   async getProxyNames() {
     const response = await fetch(`${this.apiUrl}/proxies`, {
       headers: this.getHeaders(),
