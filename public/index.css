@@ -1166,6 +1166,16 @@ textarea {
     gap: 12px;
 }
 
+.fixed-link-output-header > div {
+    display: grid;
+    gap: 4px;
+}
+
+.fixed-link-output-header small {
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
 .fixed-link-output textarea {
     min-height: 96px;
     font-family: var(--font-mono);

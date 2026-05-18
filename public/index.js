@@ -1346,10 +1346,18 @@ class ConfigManager {
       return "";
     }
 
+    const excludedCount = this.getUnavailableFixedInboundCount(this.fixedInbounds);
+    const note = excludedCount > 0
+      ? `<small>已自动排除 ${excludedCount} 个测速不可用节点。</small>`
+      : "";
+
     return `
       <div class="fixed-link-output">
         <div class="fixed-link-output-header">
-          <strong>固定入口 SOCKS 链接</strong>
+          <div>
+            <strong>固定入口 SOCKS 链接</strong>
+            ${note}
+          </div>
           <button type="button" class="btn btn-primary btn-sm" onclick="configManager.copyFixedLinks()">复制全部</button>
         </div>
         <textarea id="fixedLinkOutput" readonly rows="${Math.min(Math.max(links.length, 3), 8)}">${escapeHtml(links.join("\n"))}</textarea>
@@ -1360,8 +1368,29 @@ class ConfigManager {
   buildFixedInboundLinks(inbounds) {
     return inbounds
       .filter((inbound) => inbound.enabled !== false)
+      .filter((inbound) => this.isFixedInboundLinkable(inbound))
       .map((inbound) => this.formatFixedInboundLink(inbound))
       .filter(Boolean);
+  }
+
+  getUnavailableFixedInboundCount(inbounds) {
+    return inbounds
+      .filter((inbound) => inbound.enabled !== false)
+      .filter((inbound) => {
+        const health = this.getFixedInboundNode(inbound)?.health;
+        return health && !health.alive;
+      }).length;
+  }
+
+  isFixedInboundLinkable(inbound) {
+    const health = this.getFixedInboundNode(inbound)?.health;
+    return !health || health.alive;
+  }
+
+  getFixedInboundNode(inbound) {
+    const proxy = String(inbound.proxy || inbound.proxyName || "").trim();
+    if (!proxy) return null;
+    return this.nodeOptions.find((node) => node.name === proxy) || null;
   }
 
   formatFixedInboundLink(inbound) {
@@ -1373,11 +1402,28 @@ class ConfigManager {
       return "";
     }
 
-    const rawHost = String(inbound.listen || "127.0.0.1").trim() || "127.0.0.1";
-    const host = rawHost === "0.0.0.0" || rawHost === "::" ? window.location.hostname : rawHost;
+    const host = this.getFixedLinkHost();
     const credentials = `${encodeURIComponent(username)}:${encodeURIComponent(password)}`;
     const formattedHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
     return `${proxy}|socks5://${credentials}@${formattedHost}:${port}`;
+  }
+
+  getFixedLinkHost() {
+    const configuredApiUrl = document.getElementById("modal-mihomoApiUrl")?.value.trim() || this.currentConfig?.mihomoApiUrl || "";
+    if (configuredApiUrl) {
+      try {
+        const url = new URL(configuredApiUrl.includes("://") ? configuredApiUrl : `http://${configuredApiUrl}`);
+        if (url.hostname && !["0.0.0.0", "::", "127.0.0.1", "localhost", "host.docker.internal"].includes(url.hostname)) {
+          return url.hostname;
+        }
+      } catch {
+        const host = configuredApiUrl.replace(/^https?:\/\//, "").split("/")[0].split(":")[0].trim();
+        if (host && !["0.0.0.0", "127.0.0.1", "localhost", "host.docker.internal"].includes(host)) {
+          return host;
+        }
+      }
+    }
+    return window.location.hostname || "127.0.0.1";
   }
 
   refreshFixedLinkOutput() {
