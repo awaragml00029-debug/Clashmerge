@@ -38,6 +38,7 @@ class AnyTLSParser extends BaseParser {
             node.server = server;
             node.port = port || 443;
             node.sni = params.sni || params.servername || node.server;
+            node.fingerprint = params['client-fingerprint'] || params.fingerprint || params.fp || '';
             node.skip_cert_verify = params.insecure === '1' || params.insecure === 'true';
             node.udp = params.udp !== 'false';
             if (params.alpn) {

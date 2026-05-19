@@ -236,6 +236,9 @@ class ClashGenerator extends BaseGenerator {
         proxy.type = "anytls";
         proxy.password = node.password;
         proxy.sni = node.sni || node.server;
+        if (node.fingerprint) {
+          proxy["client-fingerprint"] = node.fingerprint;
+        }
         proxy["skip-cert-verify"] = node.skip_cert_verify || false;
         if (Array.isArray(node.alpn) && node.alpn.length > 0) {
           proxy.alpn = node.alpn;

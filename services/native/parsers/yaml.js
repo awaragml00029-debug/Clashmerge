@@ -304,6 +304,7 @@ class YAMLParser extends BaseParser {
         node.port = parseInt(proxy.port, 10);
         node.password = proxy.password || '';
         node.sni = proxy.sni || proxy.servername || proxy.server;
+        node.fingerprint = proxy['client-fingerprint'] || proxy.fingerprint || '';
         node.skip_cert_verify = proxy['skip-cert-verify'] === true;
         node.udp = proxy.udp !== false;
         if (proxy.alpn) {
