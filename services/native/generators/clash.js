@@ -48,6 +48,9 @@ class ClashGenerator extends BaseGenerator {
         "fake-ip-range": "198.18.0.1/16",
         "use-hosts": true,
         "use-system-hosts": true,
+        "nameserver-policy": {
+          "geosite:cn,apple,category-games@cn,private": ["119.29.29.29", "223.5.5.5", "system"],
+        },
         nameserver: ["https://223.6.6.6/dns-query", "https://doh.pub/dns-query"],
         "proxy-server-nameserver": ["https://223.5.5.5/dns-query", "https://doh.pub/dns-query"],
       },
