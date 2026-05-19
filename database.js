@@ -26,7 +26,7 @@ class Database {
         remoteConverterUrl: "",
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
-        mergeMode: "dedupe",
+        exportMergeMode: "dedupe",
         mihomoApiUrl: "",
         mihomoSecret: "",
         mihomoTestUrl: "",
@@ -77,6 +77,7 @@ class Database {
       remoteConverterUrl: "",
       remoteConverterProtocol: "https",
       defaultPreviewFormat: "ss",
+      exportMergeMode: "dedupe",
       mihomoApiUrl: "",
       mihomoSecret: "",
       mihomoTestUrl: "",
@@ -89,6 +90,14 @@ class Database {
         needsSave = true;
         console.log(`配置迁移: 添加 ${key} = ${defaultValue}`);
       }
+    }
+
+    if (this.data.config.mergeMode !== undefined) {
+      if (this.data.config.exportMergeMode === undefined) {
+        this.data.config.exportMergeMode = this.data.config.mergeMode === "none" ? "none" : "dedupe";
+      }
+      delete this.data.config.mergeMode;
+      needsSave = true;
     }
 
     if (this.data.config.conversionMode === "remote") {
@@ -252,7 +261,7 @@ class Database {
         remoteConverterUrl: "",
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
-        mergeMode: "dedupe",
+        exportMergeMode: "dedupe",
         mihomoApiUrl: "",
         mihomoSecret: "",
         mihomoTestUrl: "",

@@ -175,6 +175,20 @@ class ClashGenerator extends BaseGenerator {
 
         if (node.tls) {
           proxy.servername = node.sni || node.server;
+          if (node.fingerprint) {
+            proxy["client-fingerprint"] = node.fingerprint;
+          }
+          if (node.security === "reality" || node.reality_opts?.public_key) {
+            proxy["reality-opts"] = {
+              "public-key": node.reality_opts.public_key,
+            };
+            if (node.reality_opts.short_id) {
+              proxy["reality-opts"]["short-id"] = node.reality_opts.short_id;
+            }
+            if (node.reality_opts.spider_x) {
+              proxy["reality-opts"]["spider-x"] = node.reality_opts.spider_x;
+            }
+          }
           if (node.skip_cert_verify) {
             proxy["skip-cert-verify"] = true;
           }

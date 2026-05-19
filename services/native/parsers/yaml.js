@@ -223,11 +223,17 @@ class YAMLParser extends BaseParser {
         node.network = proxy.network || 'tcp';
         node.udp = proxy.udp !== false;
 
-        // TLS 配置
-        node.tls = proxy.tls === true || proxy.tls === 'true';
+        // TLS / Reality 配置
+        const realityOpts = proxy['reality-opts'] || {};
+        node.security = proxy.security || (realityOpts['public-key'] ? 'reality' : '');
+        node.tls = proxy.tls === true || proxy.tls === 'true' || node.security === 'reality';
         if (node.tls) {
             node.sni = proxy.sni || proxy.servername || '';
+            node.fingerprint = proxy['client-fingerprint'] || proxy.fingerprint || '';
             node.skip_cert_verify = proxy['skip-cert-verify'] === true;
+            node.reality_opts.public_key = realityOpts['public-key'] || realityOpts.public_key || '';
+            node.reality_opts.short_id = realityOpts['short-id'] || realityOpts.short_id || '';
+            node.reality_opts.spider_x = realityOpts['spider-x'] || realityOpts.spider_x || '';
             if (proxy.alpn) {
                 node.alpn = Array.isArray(proxy.alpn) ? proxy.alpn : [proxy.alpn];
             }

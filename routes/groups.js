@@ -97,9 +97,7 @@ async function getGroupNodeOptions(db, groupId, config = null) {
   }
 
   const converter = new NativeConverter();
-  const result = await converter.listNodes(urls, {
-    mergeMode: effectiveConfig.mergeMode === "none" ? "none" : "dedupe",
-  });
+  const result = await converter.listNodes(urls);
   const generator = new ClashGenerator();
   const nodes = generator.generateProxies(result.nodes).map((proxy) => ({
     name: proxy.name || "",
@@ -121,9 +119,7 @@ async function generateGroupMihomoConfig(db, groupId, config) {
 
   const fixedInbounds = normalizeFixedInbounds(effectiveConfig);
   const converter = new NativeConverter();
-  const result = await converter.listNodes(urls, {
-    mergeMode: effectiveConfig.mergeMode === "none" ? "none" : "dedupe",
-  });
+  const result = await converter.listNodes(urls);
   const generator = new ClashGenerator({ fixedInbounds });
   const proxies = generator.generateProxies(result.nodes);
   const content = generator.generateFromProxies(proxies);

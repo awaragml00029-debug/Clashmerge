@@ -55,9 +55,16 @@ class BaseParser {
             method: '',         // 加密方法 (ss)
             network: 'tcp',     // 传输协议 (tcp/ws/grpc/h2)
             tls: false,         // 是否启用TLS
+            security: '',       // tls/reality/none
             sni: '',            // SNI
+            fingerprint: '',    // TLS/Reality client fingerprint
             alpn: [],           // ALPN
             skip_cert_verify: false,  // 跳过证书验证
+            reality_opts: {
+                public_key: '',
+                short_id: '',
+                spider_x: ''
+            },
             // WebSocket 相关
             ws_opts: {
                 path: '',

@@ -67,10 +67,23 @@ class VLESSParser extends BaseParser {
                 node.flow = params.flow;
             }
             if (params.security) {
+                node.security = params.security;
                 node.tls = params.security === 'tls' || params.security === 'reality';
             }
             if (params.sni) {
                 node.sni = params.sni;
+            }
+            if (params.fp) {
+                node.fingerprint = params.fp;
+            }
+            if (params.pbk) {
+                node.reality_opts.public_key = params.pbk;
+            }
+            if (params.sid) {
+                node.reality_opts.short_id = params.sid;
+            }
+            if (params.spx) {
+                node.reality_opts.spider_x = params.spx;
             }
             if (params.alpn) {
                 node.alpn = params.alpn.split(',');
