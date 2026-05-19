@@ -87,7 +87,8 @@ function sanitizeListeners(listeners) {
   }));
 }
 
-async function getGroupNodeOptions(db, groupId) {
+async function getGroupNodeOptions(db, groupId, config = null) {
+  const effectiveConfig = config || await db.getConfig();
   const subscriptions = await db.getActiveSubscriptionsByGroup(groupId);
   const urls = expandSubscriptionUrls(subscriptions);
 
@@ -96,7 +97,9 @@ async function getGroupNodeOptions(db, groupId) {
   }
 
   const converter = new NativeConverter();
-  const result = await converter.listNodes(urls);
+  const result = await converter.listNodes(urls, {
+    mergeMode: effectiveConfig.mergeMode === "none" ? "none" : "dedupe",
+  });
   const generator = new ClashGenerator();
   const nodes = generator.generateProxies(result.nodes).map((proxy) => ({
     name: proxy.name || "",
@@ -118,7 +121,9 @@ async function generateGroupMihomoConfig(db, groupId, config) {
 
   const fixedInbounds = normalizeFixedInbounds(effectiveConfig);
   const converter = new NativeConverter();
-  const result = await converter.listNodes(urls);
+  const result = await converter.listNodes(urls, {
+    mergeMode: effectiveConfig.mergeMode === "none" ? "none" : "dedupe",
+  });
   const generator = new ClashGenerator({ fixedInbounds });
   const proxies = generator.generateProxies(result.nodes);
   const content = generator.generateFromProxies(proxies);

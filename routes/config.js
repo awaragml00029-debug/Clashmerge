@@ -52,6 +52,7 @@ function normalizeConfigPayload(config) {
         remoteConverterUrl: "",
     };
 
+    normalized.mergeMode = config.mergeMode === "none" ? "none" : "dedupe";
     normalized.mihomoApiUrl = String(config.mihomoApiUrl || "").trim();
     normalized.mihomoSecret = String(config.mihomoSecret || "").trim();
     normalized.mihomoTestUrl = String(config.mihomoTestUrl || "").trim();
@@ -117,7 +118,9 @@ function createConfigRoutes(db) {
             };
             const nextValue = Object.prototype.hasOwnProperty.call(localOnlyOverrides, key)
                 ? localOnlyOverrides[key]
-                : value;
+                : key === "mergeMode"
+                    ? (value === "none" ? "none" : "dedupe")
+                    : value;
             await db.setConfigValue(key, nextValue);
             res.json({ message: "配置项更新成功", key, value: nextValue });
         } catch (error) {

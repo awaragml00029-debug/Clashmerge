@@ -83,6 +83,12 @@ class BaseParser {
                 obfs_password: '',
                 pinSHA256: ''
             },
+            // SSR 特有
+            ssr_protocol: '',
+            ssr_protocol_param: '',
+            ssr_obfs: '',
+            ssr_obfs_param: '',
+            group: '',
             // 其他
             udp: true
         };

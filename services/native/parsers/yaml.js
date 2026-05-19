@@ -64,6 +64,8 @@ class YAMLParser extends BaseParser {
             case 'ss':
             case 'shadowsocks':
                 return this.parseShadowsocks(proxy);
+            case 'ssr':
+                return this.parseSSR(proxy);
             case 'vmess':
                 return this.parseVMess(proxy);
             case 'trojan':
@@ -102,6 +104,22 @@ class YAMLParser extends BaseParser {
             node.plugin_opts = proxy['plugin-opts'] || {};
         }
 
+        return node;
+    }
+
+    parseSSR(proxy) {
+        const node = this.createNode();
+        node.type = 'ssr';
+        node.name = proxy.name || 'SSR节点';
+        node.server = proxy.server;
+        node.port = parseInt(proxy.port, 10);
+        node.password = proxy.password;
+        node.method = proxy.cipher || proxy.method || 'aes-256-cfb';
+        node.ssr_protocol = proxy.protocol || 'origin';
+        node.ssr_protocol_param = proxy['protocol-param'] || proxy.protocol_param || '';
+        node.ssr_obfs = proxy.obfs || 'plain';
+        node.ssr_obfs_param = proxy['obfs-param'] || proxy.obfs_param || '';
+        node.udp = proxy.udp !== false;
         return node;
     }
 

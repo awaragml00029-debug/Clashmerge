@@ -91,6 +91,18 @@ class ClashGenerator extends BaseGenerator {
         proxy.type = "ss";
         proxy.cipher = node.method;
         proxy.password = node.password;
+      } else if (node.type === "ssr") {
+        proxy.type = "ssr";
+        proxy.cipher = node.method;
+        proxy.password = node.password;
+        proxy.protocol = node.ssr_protocol || "origin";
+        proxy.obfs = node.ssr_obfs || "plain";
+        if (node.ssr_protocol_param) {
+          proxy["protocol-param"] = node.ssr_protocol_param;
+        }
+        if (node.ssr_obfs_param) {
+          proxy["obfs-param"] = node.ssr_obfs_param;
+        }
       } else if (node.type === "vmess") {
         proxy.type = "vmess";
         proxy.uuid = node.uuid;

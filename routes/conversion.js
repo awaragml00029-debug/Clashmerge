@@ -36,6 +36,7 @@ function createConversionRoutes(db) {
             .createHash("sha1")
             .update(JSON.stringify({
                 conversionMode: config?.conversionMode || "native",
+                mergeMode: config?.mergeMode || "dedupe",
                 fixedInbounds: config?.fixedInbounds || [],
                 fileName: config?.fileName || "ClashMerge",
             }))
@@ -148,14 +149,16 @@ function createConversionRoutes(db) {
                 fallbackEnabled: false,
                 nativeConverterEnabled: true,
                 fileName: "ClashMerge",
+                mergeMode: "dedupe",
                 fixedInbounds: [],
             };
         }
 
         const fixedInbounds = normalizeFixedInbounds(config);
+        const mergeMode = config.mergeMode === "none" ? "none" : "dedupe";
         const conversionMode = "native";
 
-        console.log(`转换模式: ${conversionMode}`);
+        console.log(`转换模式: ${conversionMode}, 节点处理: ${mergeMode}`);
         const extensionScript = getExtensionScript();
 
         let subContent;
@@ -164,7 +167,7 @@ function createConversionRoutes(db) {
             console.log('使用原生转换器');
             const NativeConverter = require('../services/native');
             const converter = new NativeConverter();
-            subContent = await converter.convert(activeUrls, format, { fixedInbounds });
+            subContent = await converter.convert(activeUrls, format, { fixedInbounds, mergeMode });
         } catch (error) {
             console.error('原生转换失败:', error);
             throw error;

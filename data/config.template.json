@@ -45,6 +45,7 @@
     "remoteConverterUrl": "",
     "remoteConverterProtocol": "https",
     "defaultPreviewFormat": "ss",
+    "mergeMode": "dedupe",
     "mihomoApiUrl": "",
     "mihomoSecret": "",
     "mihomoTestUrl": "",

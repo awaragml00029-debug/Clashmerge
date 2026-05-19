@@ -7,6 +7,7 @@ const TrojanParser = require('./trojan');
 const VLESSParser = require('./vless');
 const Hysteria2Parser = require('./hysteria2');
 const AnyTLSParser = require('./anytls');
+const SSRParser = require('./ssr');
 const YAMLParser = require('./yaml');
 
 module.exports = {
@@ -16,5 +17,6 @@ module.exports = {
     VLESSParser,
     Hysteria2Parser,
     AnyTLSParser,
+    SSRParser,
     YAMLParser
 };

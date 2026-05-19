@@ -9,6 +9,7 @@ const {
     VLESSParser,
     Hysteria2Parser,
     AnyTLSParser,
+    SSRParser,
     YAMLParser
 } = require('./parsers');
 
@@ -20,7 +21,8 @@ class SubscriptionFetcher {
             trojan: new TrojanParser(),
             vless: new VLESSParser(),
             hysteria2: new Hysteria2Parser(),
-            anytls: new AnyTLSParser()
+            anytls: new AnyTLSParser(),
+            ssr: new SSRParser()
         };
         this.parserList = Object.values(this.parsers);
         this.yamlParser = new YAMLParser();
@@ -38,7 +40,7 @@ class SubscriptionFetcher {
         try {
             // 直接节点链接（非 http/https）无需拉取，直接解析
             const isDirectNode =
-                /^(vmess|vless|ss|trojan|hysteria2|anytls):\/\//i.test(url) &&
+                /^(vmess|vless|ss|ssr|trojan|hysteria2|anytls):\/\//i.test(url) &&
                 !/^https?:\/\//i.test(url);
             if (isDirectNode) {
                 result.format = "uri";
@@ -135,7 +137,7 @@ class SubscriptionFetcher {
         }
 
         // 检测 URI 格式 (以协议开头)
-        if (/^(vmess|vless|ss|trojan):\/\//i.test(trimmed)) {
+        if (/^(vmess|vless|ss|ssr|trojan|hysteria2|anytls):\/\//i.test(trimmed)) {
             return 'uri';
         }
 

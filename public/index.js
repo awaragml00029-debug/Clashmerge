@@ -1237,6 +1237,8 @@ class ConfigManager {
     document.getElementById("modal-defaultPreviewFormat").value =
       config.defaultPreviewFormat || "ss";
     CustomSelect.syncById("modal-defaultPreviewFormat");
+    document.getElementById("modal-mergeMode").value = config.mergeMode || "dedupe";
+    CustomSelect.syncById("modal-mergeMode");
     document.getElementById("modal-mihomoApiUrl").value = config.mihomoApiUrl || "";
     document.getElementById("modal-mihomoSecret").value = config.mihomoSecret || "";
     document.getElementById("modal-mihomoTestUrl").value = config.mihomoTestUrl || "";
@@ -1252,6 +1254,7 @@ class ConfigManager {
     this.currentConfig = {
       ...config,
       defaultPreviewFormat: config.defaultPreviewFormat || "ss",
+      mergeMode: config.mergeMode || "dedupe",
     };
   }
 
@@ -1682,6 +1685,7 @@ class ConfigManager {
       fileName: document.getElementById("modal-fileName").value.trim(),
       defaultPreviewFormat:
         document.getElementById("modal-defaultPreviewFormat").value || "ss",
+      mergeMode: document.getElementById("modal-mergeMode").value || "dedupe",
       conversionMode: "native",
       nativeConverterEnabled: true,
       fallbackEnabled: false,

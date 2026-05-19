@@ -88,8 +88,7 @@ class NativeConverter {
 
       // 步骤 2: 合并节点
       currentStep = "merge-nodes";
-      console.log("[步骤 2] 合并节点...");
-      const allNodes = this.merger.merge(fetchResults);
+      const allNodes = this.getNodes(fetchResults, options);
 
       if (allNodes.length === 0) {
         throw new Error("未解析到任何有效节点");
@@ -98,7 +97,8 @@ class NativeConverter {
       // 输出统计信息
       const stats = this.merger.getStats(allNodes);
       const mergedTypeStr = this.formatStats(stats.byType);
-      console.log(`合并去重后: 总计 ${stats.total}${mergedTypeStr ? `，协议: ${mergedTypeStr}` : ""}`);
+      const mergeModeLabel = this.getMergeMode(options) === "none" ? "未合并" : "合并去重后";
+      console.log(`${mergeModeLabel}: 总计 ${stats.total}${mergedTypeStr ? `，协议: ${mergedTypeStr}` : ""}`);
 
       // 步骤 3: 生成目标格式
       currentStep = "generate-output";
@@ -129,11 +129,11 @@ class NativeConverter {
     }
   }
 
-  async listNodes(subscriptionUrls) {
+  async listNodes(subscriptionUrls, options = {}) {
     const fetchResults = await Promise.all(
       subscriptionUrls.map((url) => this.fetcher.fetch(url)),
     );
-    const nodes = this.merger.merge(fetchResults);
+    const nodes = this.getNodes(fetchResults, options);
     const failures = fetchResults.flatMap((result) => result.failures || []);
 
     return {
@@ -141,6 +141,17 @@ class NativeConverter {
       failures,
       stats: this.merger.getStats(nodes),
     };
+  }
+
+  getMergeMode(options = {}) {
+    return options.mergeMode === "none" ? "none" : "dedupe";
+  }
+
+  getNodes(fetchResults, options = {}) {
+    if (this.getMergeMode(options) === "none") {
+      return fetchResults.flatMap((result) => result.nodes || []);
+    }
+    return this.merger.merge(fetchResults);
   }
 
   /**

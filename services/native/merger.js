@@ -26,7 +26,7 @@ class NodeMerger {
         // 排序：按类型分组，同类型按名称排序
         allNodes.sort((a, b) => {
             if (a.type !== b.type) {
-                const typeOrder = { vmess: 1, vless: 2, trojan: 3, ss: 4, hysteria2: 5, anytls: 6 };
+                const typeOrder = { vmess: 1, vless: 2, trojan: 3, ss: 4, ssr: 5, hysteria2: 6, anytls: 7 };
                 return (typeOrder[a.type] || 99) - (typeOrder[b.type] || 99);
             }
             return (a.name || '').localeCompare(b.name || '');
@@ -60,6 +60,10 @@ class NodeMerger {
             h2_opts: node.h2_opts,
             grpc_opts: node.grpc_opts,
             hysteria2_opts: node.hysteria2_opts,
+            ssr_protocol: node.ssr_protocol,
+            ssr_protocol_param: node.ssr_protocol_param,
+            ssr_obfs: node.ssr_obfs,
+            ssr_obfs_param: node.ssr_obfs_param,
             alpn: node.alpn,
         });
     }
