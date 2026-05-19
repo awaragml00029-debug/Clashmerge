@@ -25,8 +25,7 @@ class ClashGenerator extends BaseGenerator {
 
   generateFromProxies(proxies) {
     const config = {
-      port: 7890,
-      "socks-port": 7891,
+      "mixed-port": 7890,
       "allow-lan": false,
       mode: "rule",
       "log-level": "info",
