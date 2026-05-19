@@ -36,6 +36,14 @@ class ClashGenerator extends BaseGenerator {
       "unified-delay": true,
       "global-client-fingerprint": "chrome",
       "keep-alive-interval": 360,
+      "cfw-bypass": ["localhost", "127.*", "10.*", "192.168.*", "<local>"],
+      ntp: {
+        enable: true,
+        "write-to-system": false,
+        server: "ntp.tencent.com",
+        port: 123,
+        interval: 480,
+      },
       hosts: {
         "mtalk.google.com": "108.177.125.188",
         "appv2.nloli.xyz": "104.26.2.212",
