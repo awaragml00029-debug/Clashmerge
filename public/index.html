@@ -242,6 +242,10 @@
                     <input type="checkbox" id="fixedOnlyHealthy" checked />
                     仅可用
                   </label>
+                  <label class="fixed-healthy-toggle">
+                    <input type="checkbox" id="fixedExcludeUnavailableLinks" onchange="configManager.renderFixedInbounds()" />
+                    复制时排除不可用
+                  </label>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.loadNodeOptions()">刷新节点</button>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.testFixedInboundNodes()">检测可用节点</button>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.addRandomFixedInbounds()">随机生成</button>

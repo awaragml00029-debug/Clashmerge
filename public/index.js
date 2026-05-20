@@ -1349,10 +1349,14 @@ class ConfigManager {
       return "";
     }
 
-    const excludedCount = this.getUnavailableFixedInboundCount(this.fixedInbounds);
-    const note = excludedCount > 0
-      ? `<small>已自动排除 ${excludedCount} 个测速不可用节点。</small>`
-      : "";
+    const excludeUnavailable = this.shouldExcludeUnavailableFixedLinks();
+    const excludedCount = excludeUnavailable ? this.getUnavailableFixedInboundCount(this.fixedInbounds) : 0;
+    const unavailableCount = this.getUnavailableFixedInboundCount(this.fixedInbounds);
+    const note = excludeUnavailable && excludedCount > 0
+      ? `<small>已排除 ${excludedCount} 个测速不可用节点。</small>`
+      : unavailableCount > 0
+        ? `<small>保留全部链接，其中 ${unavailableCount} 个测速不可用。</small>`
+        : "";
 
     return `
       <div class="fixed-link-output">
@@ -1386,8 +1390,13 @@ class ConfigManager {
   }
 
   isFixedInboundLinkable(inbound) {
+    if (!this.shouldExcludeUnavailableFixedLinks()) return true;
     const health = this.getFixedInboundNode(inbound)?.health;
     return !health || health.alive;
+  }
+
+  shouldExcludeUnavailableFixedLinks() {
+    return document.getElementById("fixedExcludeUnavailableLinks")?.checked === true;
   }
 
   getFixedInboundNode(inbound) {
@@ -1561,16 +1570,12 @@ class ConfigManager {
       const onlyHealthy = document.getElementById("fixedOnlyHealthy")?.checked !== false;
       this.showMessage("正在检测当前分组全部节点，并按延迟最低生成固定入口...", "success");
       const stats = await this.refreshFixedInboundNodeHealth();
-      const measuredNodes = this.nodeOptions.filter((node) => {
-        const delay = Number(node?.health?.delay);
-        return Boolean(node?.health?.alive) && Number.isFinite(delay) && delay >= 0;
-      });
       const candidateNodes = onlyHealthy
-        ? measuredNodes.filter((node) => this.isNodeWithinDelay(node, maxDelay))
-        : measuredNodes;
+        ? this.nodeOptions.filter((node) => this.isNodeWithinDelay(node, maxDelay))
+        : [...this.nodeOptions];
 
       if (!candidateNodes.length) {
-        this.showMessage(onlyHealthy ? `已检测 ${stats.checked} 个节点，没有低于 ${maxDelay}ms 的可用节点。请调高最大延迟或取消“仅可用”。` : `已检测 ${stats.checked} 个节点，没有可用节点。`, "error");
+        this.showMessage(onlyHealthy ? `已检测 ${stats.checked} 个节点，没有低于 ${maxDelay}ms 的可用节点。请调高最大延迟或取消“仅可用”。` : "当前分组没有可生成固定入口的节点。", "error");
         return;
       }
       if (candidateNodes.length < count) {
@@ -1589,7 +1594,9 @@ class ConfigManager {
       }
 
       const lowestDelayNodes = [...candidateNodes].sort((a, b) => {
-        const delayDiff = Number(a.health?.delay) - Number(b.health?.delay);
+        const aDelay = Number.isFinite(Number(a.health?.delay)) ? Number(a.health.delay) : Number.MAX_SAFE_INTEGER;
+        const bDelay = Number.isFinite(Number(b.health?.delay)) ? Number(b.health.delay) : Number.MAX_SAFE_INTEGER;
+        const delayDiff = aDelay - bDelay;
         return delayDiff || String(a.name || "").localeCompare(String(b.name || ""));
       });
       const nextRows = [];
