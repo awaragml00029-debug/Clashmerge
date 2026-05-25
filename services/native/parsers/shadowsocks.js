@@ -126,13 +126,13 @@ class ShadowsocksParser extends BaseParser {
     }
 
     parsePlugin(pluginValue) {
-        const parts = String(pluginValue || '').split(';').map(part => part.trim()).filter(Boolean);
+        const parts = this.splitPluginParts(pluginValue);
         if (parts.length === 0) {
             return { plugin: '', plugin_opts: {} };
         }
 
         const rawPlugin = parts.shift();
-        const plugin = rawPlugin.toLowerCase() === 'shadowtls' ? 'shadow-tls' : rawPlugin;
+        const plugin = this.normalizePluginName(rawPlugin);
         const plugin_opts = {};
 
         for (const part of parts) {
@@ -148,7 +148,69 @@ class ShadowsocksParser extends BaseParser {
             plugin_opts[key] = key === 'version' && /^\d+$/.test(value) ? parseInt(value, 10) : value;
         }
 
-        return { plugin, plugin_opts };
+        return {
+            plugin,
+            plugin_opts: this.normalizePluginOpts(plugin, plugin_opts),
+        };
+    }
+
+    splitPluginParts(pluginValue) {
+        const parts = [];
+        let current = '';
+        let escaped = false;
+
+        for (const char of String(pluginValue || '')) {
+            if (escaped) {
+                current += char;
+                escaped = false;
+                continue;
+            }
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (char === ';') {
+                if (current.trim()) parts.push(current.trim());
+                current = '';
+                continue;
+            }
+            current += char;
+        }
+        if (escaped) current += '\\';
+        if (current.trim()) parts.push(current.trim());
+        return parts;
+    }
+
+    normalizePluginName(plugin) {
+        const normalized = String(plugin || '').toLowerCase().replace(/_/g, '-');
+        return normalized === 'shadowtls' ? 'shadow-tls' : plugin;
+    }
+
+    normalizePluginOpts(plugin, pluginOpts) {
+        const normalized = String(plugin || '').toLowerCase().replace(/_/g, '-');
+        if (normalized !== 'shadow-tls' && normalized !== 'shadowtls') return pluginOpts;
+
+        const host = String(pluginOpts.host || '').split(';')[0].trim();
+        const password = pluginOpts.password || pluginOpts.passwd || pluginOpts.pwd || '';
+        const version = this.detectShadowTLSVersion(pluginOpts);
+        const result = {};
+        if (host) result.host = host;
+        if (password) result.password = password;
+        if (version) result.version = version;
+        return result;
+    }
+
+    detectShadowTLSVersion(pluginOpts) {
+        const explicitVersion = parseInt(pluginOpts.version || pluginOpts.v || '', 10);
+        if ([1, 2, 3].includes(explicitVersion)) return explicitVersion;
+        if (this.isTruthyPluginFlag(pluginOpts.v3)) return 3;
+        if (this.isTruthyPluginFlag(pluginOpts.v2)) return 2;
+        if (this.isTruthyPluginFlag(pluginOpts.v1)) return 1;
+        return 3;
+    }
+
+    isTruthyPluginFlag(value) {
+        return value === true || value === 1 || value === '1' || String(value).toLowerCase() === 'true';
     }
 
     /**

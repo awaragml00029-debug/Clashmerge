@@ -145,7 +145,7 @@ class ClashGenerator extends BaseGenerator {
         }
         if (node.plugin) {
           proxy.plugin = isShadowTLS ? "shadow-tls" : node.plugin;
-          proxy["plugin-opts"] = node.plugin_opts || {};
+          proxy["plugin-opts"] = isShadowTLS ? this.normalizeShadowTLSPluginOpts(node.plugin_opts || {}) : node.plugin_opts || {};
         }
         if (node.fingerprint) {
           proxy["client-fingerprint"] = node.fingerprint;
@@ -301,6 +301,31 @@ class ClashGenerator extends BaseGenerator {
   isShadowTLSPlugin(plugin) {
     const normalized = String(plugin || "").toLowerCase().replace(/_/g, "-");
     return normalized === "shadow-tls" || normalized === "shadowtls";
+  }
+
+  normalizeShadowTLSPluginOpts(pluginOpts) {
+    const rawHost = String(pluginOpts.host || "").replace(/\\+$/, "");
+    const host = rawHost.split(";")[0].trim();
+    const password = pluginOpts.password || pluginOpts.passwd || pluginOpts.pwd || "";
+    const version = this.detectShadowTLSVersion(pluginOpts);
+    const normalized = {};
+    if (host) normalized.host = host;
+    if (password) normalized.password = password;
+    if (version) normalized.version = version;
+    return normalized;
+  }
+
+  detectShadowTLSVersion(pluginOpts) {
+    const explicitVersion = parseInt(pluginOpts.version || pluginOpts.v || "", 10);
+    if ([1, 2, 3].includes(explicitVersion)) return explicitVersion;
+    if (this.isTruthyPluginFlag(pluginOpts.v3)) return 3;
+    if (this.isTruthyPluginFlag(pluginOpts.v2)) return 2;
+    if (this.isTruthyPluginFlag(pluginOpts.v1)) return 1;
+    return 3;
+  }
+
+  isTruthyPluginFlag(value) {
+    return value === true || value === 1 || value === "1" || String(value).toLowerCase() === "true";
   }
 
   generateProxyGroups(proxies) {
