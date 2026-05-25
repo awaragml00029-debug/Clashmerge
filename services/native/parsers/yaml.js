@@ -97,6 +97,16 @@ class YAMLParser extends BaseParser {
         node.password = proxy.password;
         node.method = proxy.cipher || proxy.method || 'aes-256-gcm';
         node.udp = proxy.udp !== false;
+        if (Object.prototype.hasOwnProperty.call(proxy, 'udp-over-tcp')) {
+            node.udp_over_tcp = proxy['udp-over-tcp'] === true || proxy['udp-over-tcp'] === 'true';
+        }
+        if (Object.prototype.hasOwnProperty.call(proxy, 'udp-over-tcp-version')) {
+            node.udp_over_tcp_version = parseInt(proxy['udp-over-tcp-version'], 10);
+        }
+        node.ip_version = proxy['ip-version'] || '';
+        if (Object.prototype.hasOwnProperty.call(proxy, 'smux')) {
+            node.smux = proxy.smux;
+        }
 
         // 插件配置
         if (proxy.plugin) {

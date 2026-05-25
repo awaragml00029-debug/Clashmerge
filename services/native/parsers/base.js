@@ -55,6 +55,10 @@ class BaseParser {
             method: '',         // 加密方法 (ss)
             plugin: '',         // Shadowsocks 插件
             plugin_opts: {},    // Shadowsocks 插件参数
+            udp_over_tcp: undefined,
+            udp_over_tcp_version: undefined,
+            ip_version: '',
+            smux: undefined,
             network: 'tcp',     // 传输协议 (tcp/ws/grpc/h2)
             tls: false,         // 是否启用TLS
             security: '',       // tls/reality/none

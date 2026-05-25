@@ -122,6 +122,18 @@ class ClashGenerator extends BaseGenerator {
         proxy.type = "ss";
         proxy.cipher = node.method;
         proxy.password = node.password;
+        if (node.udp_over_tcp !== undefined && node.udp_over_tcp !== null) {
+          proxy["udp-over-tcp"] = node.udp_over_tcp;
+        }
+        if (node.udp_over_tcp_version !== undefined && node.udp_over_tcp_version !== null && node.udp_over_tcp_version !== "") {
+          proxy["udp-over-tcp-version"] = node.udp_over_tcp_version;
+        }
+        if (node.ip_version) {
+          proxy["ip-version"] = node.ip_version;
+        }
+        if (node.smux !== undefined && node.smux !== null) {
+          proxy.smux = node.smux;
+        }
         if (node.plugin) {
           proxy.plugin = node.plugin;
           proxy["plugin-opts"] = node.plugin_opts || {};
