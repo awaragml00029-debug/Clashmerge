@@ -6,6 +6,7 @@ const FileStore = require("session-file-store")(session);
 const Database = require("./database");
 const { checkAuthForAdmin, requireAuth } = require("./middleware/auth");
 const { getLocalIPAddresses } = require("./utils/network");
+const cache = require("./services/cache");
 
 // 创建路由
 const createAuthRoutes = require("./routes/auth");
@@ -17,6 +18,7 @@ const createConversionRoutes = require("./routes/conversion");
 const app = express();
 const port = process.env.PORT || 3000;
 const db = new Database();
+cache.clear();
 
 // 中间件
 app.use(express.json());

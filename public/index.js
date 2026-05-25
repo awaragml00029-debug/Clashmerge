@@ -74,6 +74,22 @@ function formatBytes(bytes) {
   return `${result.toFixed(result >= 100 || exponent === 0 ? 0 : 2)} ${units[exponent]}`;
 }
 
+function buildSubscriptionUrl(token, { format = "clash", refresh = true, absolute = false } = {}) {
+  const normalized = String(format || "clash").toLowerCase();
+  const basePath = `${absolute ? window.location.origin : ""}/${encodeURIComponent(token)}`;
+  const params = new URLSearchParams();
+
+  if (["clash", "meta", "mihomo", "ss"].includes(normalized)) {
+    params.set("target", normalized);
+  }
+  if (refresh) {
+    params.set("refresh", "true");
+  }
+
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
+}
+
 class CustomSelect {
   static instances = new Map();
   static openInstance = null;
@@ -526,12 +542,7 @@ class SubscriptionManager {
   }
 
   buildPreviewUrl(token, format) {
-    const normalized = String(format || "ss").toLowerCase();
-    const basePath = `/${token}`;
-    if (["clash", "meta", "mihomo"].includes(normalized)) {
-      return `${basePath}?target=${encodeURIComponent(normalized)}`;
-    }
-    return normalized === "ss" ? `${basePath}?target=ss` : basePath;
+    return buildSubscriptionUrl(token, { format, refresh: true });
   }
 
   refreshSubscription() {
@@ -545,7 +556,10 @@ class SubscriptionManager {
       "这会强制重新拉取当前分组下的订阅内容，可能需要几秒钟。",
       async () => {
         try {
-          const response = await fetch(`/${this.currentGroupToken}?refresh=true`);
+          const response = await fetch(buildSubscriptionUrl(this.currentGroupToken, {
+            format: "clash",
+            refresh: true,
+          }));
           if (!response.ok) {
             throw new Error(`状态码 ${response.status}`);
           }
@@ -1933,7 +1947,11 @@ class GroupManager {
       return "";
     }
 
-    return `${window.location.origin}/${this.currentGroup.token}`;
+    return buildSubscriptionUrl(this.currentGroup.token, {
+      format: "clash",
+      refresh: true,
+      absolute: true,
+    });
   }
 
   async copyGroupToken() {
