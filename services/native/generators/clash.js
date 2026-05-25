@@ -122,24 +122,35 @@ class ClashGenerator extends BaseGenerator {
         proxy.type = "ss";
         proxy.cipher = node.method;
         proxy.password = node.password;
+        const isShadowTLS = this.isShadowTLSPlugin(node.plugin);
         if (node.udp_over_tcp !== undefined && node.udp_over_tcp !== null) {
           proxy["udp-over-tcp"] = node.udp_over_tcp;
+        } else if (isShadowTLS) {
+          proxy["udp-over-tcp"] = false;
         }
         if (node.udp_over_tcp_version !== undefined && node.udp_over_tcp_version !== null && node.udp_over_tcp_version !== "") {
           proxy["udp-over-tcp-version"] = node.udp_over_tcp_version;
+        } else if (isShadowTLS) {
+          proxy["udp-over-tcp-version"] = 2;
         }
         if (node.ip_version) {
           proxy["ip-version"] = node.ip_version;
+        } else if (isShadowTLS) {
+          proxy["ip-version"] = "ipv4";
         }
         if (node.smux !== undefined && node.smux !== null) {
           proxy.smux = node.smux;
+        } else if (isShadowTLS) {
+          proxy.smux = { enabled: false };
         }
         if (node.plugin) {
-          proxy.plugin = node.plugin;
+          proxy.plugin = isShadowTLS ? "shadow-tls" : node.plugin;
           proxy["plugin-opts"] = node.plugin_opts || {};
         }
         if (node.fingerprint) {
           proxy["client-fingerprint"] = node.fingerprint;
+        } else if (isShadowTLS) {
+          proxy["client-fingerprint"] = "chrome";
         }
       } else if (node.type === "ssr") {
         proxy.type = "ssr";
@@ -287,6 +298,11 @@ class ClashGenerator extends BaseGenerator {
    * @param {Array} proxies - 代理列表
    * @returns {Array} 代理组配置
    */
+  isShadowTLSPlugin(plugin) {
+    const normalized = String(plugin || "").toLowerCase().replace(/_/g, "-");
+    return normalized === "shadow-tls" || normalized === "shadowtls";
+  }
+
   generateProxyGroups(proxies) {
     const proxyNames = proxies.map((p) => p.name);
 
