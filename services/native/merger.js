@@ -47,6 +47,8 @@ class NodeMerger {
             port: node.port,
             method: node.method,
             password: node.password,
+            plugin: node.plugin,
+            plugin_opts: node.plugin_opts,
             uuid: node.uuid,
             alterId: node.alterId,
             cipher: node.cipher,

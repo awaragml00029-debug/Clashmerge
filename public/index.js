@@ -918,7 +918,7 @@ class SubscriptionManager {
       title: isList ? "节点列表" : "订阅链接",
       namePlaceholder: isList ? "可选，默认显示为“节点列表”" : "例如：机场 A",
       urlPlaceholder: isList
-        ? "trojan://...\nvmess://...\nvless://..."
+        ? "trojan://...\nvmess://...\nvless://...\nss://.../?plugin=shadow-tls%3Bhost%3Dexample.com%3Bpassword%3Dxxx%3Bversion%3D3"
         : "https://example.com/subscribe",
       helpText: isList
         ? "支持一次粘贴多条节点链接，系统会自动按换行拆分。"

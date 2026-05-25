@@ -75,12 +75,12 @@ class ShadowsocksParser extends BaseParser {
                 node.server = serverPart.slice(0, portIndex);
                 node.port = parseInt(serverPart.slice(portIndex + 1), 10);
 
-                // 解析插件参数 (如果有)
                 if (queryIndex !== -1) {
                     const params = this.parseQuery(serverInfo.slice(queryIndex));
                     if (params.plugin) {
-                        // 暂不处理插件，可以在此扩展
-                        console.log('检测到插件:', params.plugin);
+                        const { plugin, plugin_opts } = this.parsePlugin(params.plugin);
+                        node.plugin = plugin;
+                        node.plugin_opts = plugin_opts;
                     }
                 }
             } else {
@@ -123,6 +123,32 @@ class ShadowsocksParser extends BaseParser {
             console.error('解析 SS 节点失败:', error.message);
             return null;
         }
+    }
+
+    parsePlugin(pluginValue) {
+        const parts = String(pluginValue || '').split(';').map(part => part.trim()).filter(Boolean);
+        if (parts.length === 0) {
+            return { plugin: '', plugin_opts: {} };
+        }
+
+        const rawPlugin = parts.shift();
+        const plugin = rawPlugin.toLowerCase() === 'shadowtls' ? 'shadow-tls' : rawPlugin;
+        const plugin_opts = {};
+
+        for (const part of parts) {
+            const separatorIndex = part.indexOf('=');
+            if (separatorIndex === -1) {
+                plugin_opts[part] = true;
+                continue;
+            }
+
+            const key = part.slice(0, separatorIndex).trim();
+            const value = part.slice(separatorIndex + 1).trim();
+            if (!key) continue;
+            plugin_opts[key] = key === 'version' && /^\d+$/.test(value) ? parseInt(value, 10) : value;
+        }
+
+        return { plugin, plugin_opts };
     }
 
     /**

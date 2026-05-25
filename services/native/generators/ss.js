@@ -41,17 +41,37 @@ class SSGenerator extends BaseGenerator {
                 return null;
             }
 
+            if (node.raw && /\?[^#]*plugin=/i.test(node.raw)) {
+                return node.raw.trim();
+            }
+
             // SIP002 格式: ss://base64(method:password)@server:port#name
             const userInfo = `${node.method}:${node.password}`;
             const encodedUserInfo = this.base64Encode(userInfo);
             const serverInfo = `${node.server}:${node.port}`;
             const name = this.urlEncode(node.name || 'SS Node');
+            const plugin = this.serializePlugin(node);
+            const query = plugin ? `/?plugin=${this.urlEncode(plugin)}` : '';
 
-            return `ss://${encodedUserInfo}@${serverInfo}#${name}`;
+            return `ss://${encodedUserInfo}@${serverInfo}${query}#${name}`;
         } catch (error) {
             console.error('转换 SS URI 失败:', error.message);
             return null;
         }
+    }
+
+    serializePlugin(node) {
+        if (!node.plugin) return '';
+
+        const parts = [node.plugin];
+        const pluginOpts = node.plugin_opts || {};
+        for (const key of Object.keys(pluginOpts)) {
+            const value = pluginOpts[key];
+            if (value === undefined || value === null || value === '') continue;
+            parts.push(value === true ? key : `${key}=${value}`);
+        }
+
+        return parts.join(';');
     }
 }
 

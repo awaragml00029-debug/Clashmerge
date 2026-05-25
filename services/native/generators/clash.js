@@ -122,6 +122,13 @@ class ClashGenerator extends BaseGenerator {
         proxy.type = "ss";
         proxy.cipher = node.method;
         proxy.password = node.password;
+        if (node.plugin) {
+          proxy.plugin = node.plugin;
+          proxy["plugin-opts"] = node.plugin_opts || {};
+        }
+        if (node.fingerprint) {
+          proxy["client-fingerprint"] = node.fingerprint;
+        }
       } else if (node.type === "ssr") {
         proxy.type = "ssr";
         proxy.cipher = node.method;

@@ -103,6 +103,7 @@ class YAMLParser extends BaseParser {
             node.plugin = proxy.plugin;
             node.plugin_opts = proxy['plugin-opts'] || {};
         }
+        node.fingerprint = proxy['client-fingerprint'] || proxy.fingerprint || '';
 
         return node;
     }
