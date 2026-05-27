@@ -153,7 +153,9 @@ class BaseParser {
         const pairs = query.split('&');
 
         for (const pair of pairs) {
-            const [key, value] = pair.split('=');
+            const separatorIndex = pair.indexOf('=');
+            const key = separatorIndex === -1 ? pair : pair.slice(0, separatorIndex);
+            const value = separatorIndex === -1 ? '' : pair.slice(separatorIndex + 1);
             if (key) {
                 params[this.urlDecode(key)] = value ? this.urlDecode(value) : '';
             }

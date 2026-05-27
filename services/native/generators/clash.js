@@ -321,7 +321,7 @@ class ClashGenerator extends BaseGenerator {
     if (this.isTruthyPluginFlag(pluginOpts.v3)) return 3;
     if (this.isTruthyPluginFlag(pluginOpts.v2)) return 2;
     if (this.isTruthyPluginFlag(pluginOpts.v1)) return 1;
-    return 3;
+    return 2;
   }
 
   isTruthyPluginFlag(value) {
