@@ -6,6 +6,81 @@ const DEFAULT_EXTENSION_SCRIPT = `function main(config, profileName) {
 }
 `;
 
+const ACL4SSR_DEFAULT_CUSTOM_RULES = `rule-providers:
+  acl4ssr-lan:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/LocalAreaNetwork.list
+    path: ./ruleset/acl4ssr-lan.list
+    interval: 86400
+  acl4ssr-unban:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/UnBan.list
+    path: ./ruleset/acl4ssr-unban.list
+    interval: 86400
+  acl4ssr-ban-ad:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list
+    path: ./ruleset/acl4ssr-ban-ad.list
+    interval: 86400
+  acl4ssr-ban-program-ad:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list
+    path: ./ruleset/acl4ssr-ban-program-ad.list
+    interval: 86400
+  acl4ssr-google-cn:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/GoogleCN.list
+    path: ./ruleset/acl4ssr-google-cn.list
+    interval: 86400
+  acl4ssr-steam-cn:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/SteamCN.list
+    path: ./ruleset/acl4ssr-steam-cn.list
+    interval: 86400
+  acl4ssr-ai:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AI.list
+    path: ./ruleset/acl4ssr-ai.list
+    interval: 86400
+  acl4ssr-proxy-gfw:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyGFWlist.list
+    path: ./ruleset/acl4ssr-proxy-gfw.list
+    interval: 86400
+  acl4ssr-china-domain:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list
+    path: ./ruleset/acl4ssr-china-domain.list
+    interval: 86400
+  acl4ssr-china-company-ip:
+    type: http
+    behavior: classical
+    url: https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list
+    path: ./ruleset/acl4ssr-china-company-ip.list
+    interval: 86400
+rules:
+  - RULE-SET,acl4ssr-lan,DIRECT
+  - RULE-SET,acl4ssr-unban,DIRECT
+  - RULE-SET,acl4ssr-ban-ad,REJECT
+  - RULE-SET,acl4ssr-ban-program-ad,REJECT
+  - RULE-SET,acl4ssr-google-cn,DIRECT
+  - RULE-SET,acl4ssr-steam-cn,DIRECT
+  - RULE-SET,acl4ssr-ai,🚀 节点选择
+  - RULE-SET,acl4ssr-proxy-gfw,🚀 节点选择
+  - RULE-SET,acl4ssr-china-domain,DIRECT
+  - RULE-SET,acl4ssr-china-company-ip,DIRECT
+  - GEOIP,CN,DIRECT
+  - MATCH,🚀 节点选择`;
+
 const originalFetch = window.fetch.bind(window);
 
 window.fetch = async function wrappedFetch(resource, init = {}) {
@@ -1180,6 +1255,9 @@ class ConfigManager {
       event.preventDefault();
       this.saveConfig();
     });
+    document.getElementById("modal-ruleMode")?.addEventListener("change", () => {
+      this.updateRuleModeState();
+    });
   }
 
   async loadConfig() {
@@ -1253,6 +1331,10 @@ class ConfigManager {
     CustomSelect.syncById("modal-defaultPreviewFormat");
     document.getElementById("modal-exportMergeMode").value = config.exportMergeMode || "dedupe";
     CustomSelect.syncById("modal-exportMergeMode");
+    document.getElementById("modal-ruleMode").value = config.ruleMode || "default";
+    CustomSelect.syncById("modal-ruleMode");
+    document.getElementById("modal-customRules").value = config.customRules || "";
+    this.updateRuleModeState();
     document.getElementById("modal-mihomoApiUrl").value = config.mihomoApiUrl || "";
     document.getElementById("modal-mihomoSecret").value = config.mihomoSecret || "";
     document.getElementById("modal-mihomoTestUrl").value = config.mihomoTestUrl || "";
@@ -1269,7 +1351,28 @@ class ConfigManager {
       ...config,
       defaultPreviewFormat: config.defaultPreviewFormat || "ss",
       exportMergeMode: config.exportMergeMode || "dedupe",
+      ruleMode: config.ruleMode || "default",
+      customRules: config.customRules || "",
     };
+  }
+
+  updateRuleModeState() {
+    const ruleMode = document.getElementById("modal-ruleMode")?.value || "default";
+    const customRulesInput = document.getElementById("modal-customRules");
+    if (!customRulesInput) return;
+    customRulesInput.disabled = ruleMode !== "custom";
+  }
+
+  fillAcl4ssrDefaultRules() {
+    const ruleModeInput = document.getElementById("modal-ruleMode");
+    const customRulesInput = document.getElementById("modal-customRules");
+    if (!ruleModeInput || !customRulesInput) return;
+
+    ruleModeInput.value = "custom";
+    CustomSelect.syncById("modal-ruleMode");
+    customRulesInput.value = ACL4SSR_DEFAULT_CUSTOM_RULES;
+    this.updateRuleModeState();
+    this.showMessage("已填入 ACL4SSR 默认规则。", "success");
   }
 
   renderFixedInbounds() {
@@ -1707,6 +1810,8 @@ class ConfigManager {
       defaultPreviewFormat:
         document.getElementById("modal-defaultPreviewFormat").value || "ss",
       exportMergeMode: document.getElementById("modal-exportMergeMode").value || "dedupe",
+      ruleMode: document.getElementById("modal-ruleMode").value || "default",
+      customRules: document.getElementById("modal-customRules").value || "",
       conversionMode: "native",
       nativeConverterEnabled: true,
       fallbackEnabled: false,

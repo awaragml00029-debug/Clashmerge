@@ -53,6 +53,11 @@ function normalizeConfigPayload(config) {
     };
 
     normalized.exportMergeMode = config.exportMergeMode === "none" ? "none" : "dedupe";
+    normalized.ruleMode = config.ruleMode === "custom" ? "custom" : "default";
+    normalized.customRules = String(config.customRules || "").replace(/\r\n?/g, "\n");
+    if (normalized.customRules.length > 200000) {
+        throw new Error("自定义规则内容过长");
+    }
     normalized.mihomoApiUrl = String(config.mihomoApiUrl || "").trim();
     normalized.mihomoSecret = String(config.mihomoSecret || "").trim();
     normalized.mihomoTestUrl = String(config.mihomoTestUrl || "").trim();
@@ -120,7 +125,14 @@ function createConfigRoutes(db) {
                 ? localOnlyOverrides[key]
                 : key === "exportMergeMode"
                     ? (value === "none" ? "none" : "dedupe")
-                    : value;
+                    : key === "ruleMode"
+                        ? (value === "custom" ? "custom" : "default")
+                        : key === "customRules"
+                            ? String(value || "").replace(/\r\n?/g, "\n")
+                            : value;
+            if (key === "customRules" && nextValue.length > 200000) {
+                throw new Error("自定义规则内容过长");
+            }
             await db.setConfigValue(key, nextValue);
             res.json({ message: "配置项更新成功", key, value: nextValue });
         } catch (error) {

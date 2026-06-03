@@ -37,6 +37,8 @@ function createConversionRoutes(db) {
             .update(JSON.stringify({
                 conversionMode: config?.conversionMode || "native",
                 exportMergeMode: config?.exportMergeMode || "dedupe",
+                ruleMode: config?.ruleMode || "default",
+                customRules: config?.customRules || "",
                 fixedInbounds: config?.fixedInbounds || [],
                 fileName: config?.fileName || "ClashMerge",
             }))
@@ -150,15 +152,18 @@ function createConversionRoutes(db) {
                 nativeConverterEnabled: true,
                 fileName: "ClashMerge",
                 exportMergeMode: "dedupe",
+                ruleMode: "default",
+                customRules: "",
                 fixedInbounds: [],
             };
         }
 
         const fixedInbounds = normalizeFixedInbounds(config);
         const exportMergeMode = config.exportMergeMode === "none" ? "none" : "dedupe";
+        const ruleMode = config.ruleMode === "custom" ? "custom" : "default";
         const conversionMode = "native";
 
-        console.log(`转换模式: ${conversionMode}, 节点处理: ${exportMergeMode}`);
+        console.log(`转换模式: ${conversionMode}, 节点处理: ${exportMergeMode}, 规则模式: ${ruleMode}`);
         const extensionScript = getExtensionScript();
 
         let subContent;
@@ -170,6 +175,8 @@ function createConversionRoutes(db) {
             subContent = await converter.convert(activeUrls, format, {
                 fixedInbounds,
                 mergeMode: exportMergeMode,
+                ruleMode,
+                customRules: config.customRules || "",
             });
         } catch (error) {
             console.error('原生转换失败:', error);

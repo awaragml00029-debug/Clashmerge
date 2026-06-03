@@ -7,6 +7,16 @@ const BaseParser = require('./base');
  * 支持从 YAML 配置中提取代理节点信息
  */
 class YAMLParser extends BaseParser {
+    parseConfig(content) {
+        try {
+            const config = yaml.load(content);
+            return config && typeof config === 'object' ? config : null;
+        } catch (error) {
+            console.error('解析 YAML 配置失败:', error.message);
+            return null;
+        }
+    }
+
     /**
      * 解析 YAML 格式的订阅内容
      * @param {string} content - YAML 格式的文本内容
@@ -14,10 +24,9 @@ class YAMLParser extends BaseParser {
      */
     parse(content) {
         try {
-            // 解析 YAML 内容
-            const config = yaml.load(content);
+            const config = this.parseConfig(content);
 
-            if (!config || typeof config !== 'object') {
+            if (!config) {
                 console.error('YAML 解析失败：无效的配置格式');
                 return [];
             }

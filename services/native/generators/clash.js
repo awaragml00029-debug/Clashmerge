@@ -9,6 +9,9 @@ class ClashGenerator extends BaseGenerator {
   constructor(options = {}) {
     super();
     this.fixedInbounds = Array.isArray(options.fixedInbounds) ? options.fixedInbounds : [];
+    this.ruleMode = options.ruleMode === "custom" ? "custom" : "default";
+    this.customRules = typeof options.customRules === "string" ? options.customRules : "";
+    this.customRuleConfig = this.parseCustomRuleConfig(this.customRules);
   }
 
   /**
@@ -64,8 +67,13 @@ class ClashGenerator extends BaseGenerator {
       },
       proxies: proxies,
       "proxy-groups": this.generateProxyGroups(proxies),
-      rules: this.generateRules(),
     };
+
+    const ruleProviders = this.getCustomRuleProviders();
+    if (Object.keys(ruleProviders).length > 0) {
+      config["rule-providers"] = ruleProviders;
+    }
+    config.rules = this.generateRules(proxies);
 
     const listeners = this.generateFixedListeners(proxies);
     if (listeners.length > 0) {
@@ -394,7 +402,39 @@ class ClashGenerator extends BaseGenerator {
    * 生成规则
    * @returns {Array} 规则列表
    */
-  generateRules() {
+  generateRules(proxies = []) {
+    if (this.ruleMode !== "custom") {
+      return this.generateDefaultRules();
+    }
+
+    const customRules = Array.isArray(this.customRuleConfig.rules)
+      ? this.customRuleConfig.rules
+      : [];
+    if (customRules.length === 0) {
+      return this.generateDefaultRules();
+    }
+
+    const rules = [];
+    const seen = new Set();
+    const availablePolicies = this.getAvailablePolicies(proxies);
+
+    for (const rule of customRules) {
+      const normalized = this.normalizeCustomRule(rule, availablePolicies);
+      if (!normalized) continue;
+      const key = typeof normalized === "string" ? normalized : JSON.stringify(normalized);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rules.push(normalized);
+    }
+
+    if (!rules.some((rule) => typeof rule === "string" && /^MATCH\s*,/i.test(rule.trim()))) {
+      rules.push("MATCH,🚀 节点选择");
+    }
+
+    return rules.length > 0 ? rules : this.generateDefaultRules();
+  }
+
+  generateDefaultRules() {
     return [
       "DOMAIN-SUFFIX,local,DIRECT",
       "IP-CIDR,127.0.0.0/8,DIRECT",
@@ -406,6 +446,93 @@ class ClashGenerator extends BaseGenerator {
       "GEOIP,CN,DIRECT",
       "MATCH,🚀 节点选择",
     ];
+  }
+
+  getCustomRuleProviders() {
+    if (this.ruleMode !== "custom") {
+      return {};
+    }
+    const providers = this.customRuleConfig.ruleProviders;
+    return providers && typeof providers === "object" ? providers : {};
+  }
+
+  parseCustomRuleConfig(value) {
+    const content = String(value || "").trim();
+    if (!content) {
+      return { rules: [], ruleProviders: {} };
+    }
+
+    try {
+      const parsed = yaml.load(content);
+      if (Array.isArray(parsed)) {
+        return { rules: parsed, ruleProviders: {} };
+      }
+      if (parsed && typeof parsed === "object") {
+        return {
+          rules: Array.isArray(parsed.rules) ? parsed.rules : [],
+          ruleProviders: parsed["rule-providers"] && typeof parsed["rule-providers"] === "object"
+            ? parsed["rule-providers"]
+            : {},
+        };
+      }
+    } catch {
+      // 不是 YAML 结构时，按逐行 Clash 规则解析。
+    }
+
+    return {
+      rules: content
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"))
+        .map((line) => line.replace(/^[-*]\s+/, "")),
+      ruleProviders: {},
+    };
+  }
+
+  getAvailablePolicies(proxies) {
+    return new Set([
+      "🚀 节点选择",
+      "♻️ 自动选择",
+      "🔰 故障转移",
+      "DIRECT",
+      "REJECT",
+      "REJECT-DROP",
+      "REJECT-TINYGIF",
+      "PASS",
+      ...proxies.map((proxy) => proxy.name),
+    ]);
+  }
+
+  normalizeCustomRule(rule, availablePolicies) {
+    if (typeof rule !== "string") {
+      return rule;
+    }
+
+    const parts = rule.split(",").map((part) => part.trim());
+    if (parts.length < 2) {
+      return rule.trim();
+    }
+
+    const lastIndex = parts.length - 1;
+    const policyIndex = /^no-resolve$/i.test(parts[lastIndex]) && parts.length >= 3
+      ? lastIndex - 1
+      : lastIndex;
+    parts[policyIndex] = this.normalizeCustomPolicy(parts[policyIndex], availablePolicies);
+
+    return parts.join(",");
+  }
+
+  normalizeCustomPolicy(policy, availablePolicies) {
+    if (!policy || availablePolicies.has(policy)) {
+      return policy;
+    }
+
+    const upperPolicy = policy.toUpperCase();
+    if (availablePolicies.has(upperPolicy)) {
+      return upperPolicy;
+    }
+
+    return "🚀 节点选择";
   }
 
   /**
