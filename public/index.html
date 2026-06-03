@@ -196,19 +196,6 @@
               </select>
             </div>
             <div class="form-group">
-              <label for="modal-ruleMode">规则模式</label>
-              <select id="modal-ruleMode">
-                <option value="default">默认规则（不继承订阅源规则）</option>
-                <option value="custom">自定义规则</option>
-              </select>
-            </div>
-            <div class="form-group full-width">
-              <label for="modal-customRules">自定义 Clash 规则</label>
-              <textarea id="modal-customRules" rows="8" placeholder="DOMAIN-SUFFIX,example.com,🚀 节点选择&#10;GEOIP,CN,DIRECT&#10;MATCH,🚀 节点选择"></textarea>
-              <div class="form-help">仅规则模式为“自定义规则”时生效。支持逐行 Clash rules，也支持包含 rules / rule-providers 的 YAML 片段。</div>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="configManager.fillAcl4ssrDefaultRules()">填入 ACL4SSR 默认规则</button>
-            </div>
-            <div class="form-group">
               <label for="modal-mihomoApiUrl">Mihomo API 地址</label>
               <input type="text" id="modal-mihomoApiUrl" placeholder="默认 http://127.0.0.1:9090" />
             </div>
@@ -438,6 +425,14 @@
               </button>
             </div>
             <div class="form-help">Token 需要唯一，用于生成分组订阅地址。</div>
+          </div>
+          <div class="form-group">
+            <label for="groupEdit-rulePreset">规则方案</label>
+            <select id="groupEdit-rulePreset">
+              <option value="default">默认规则</option>
+              <option value="acl4ssr">ACL4SSR 默认规则</option>
+            </select>
+            <div class="form-help">每个分组独立选择。复制该分组订阅地址后，服务端会按这里的规则方案生成 Clash 配置。</div>
           </div>
         </form>
       </div>

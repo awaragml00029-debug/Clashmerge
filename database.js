@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { normalizeRulePreset } = require("./services/native/rule-presets");
 
 class Database {
   constructor() {
@@ -27,8 +28,6 @@ class Database {
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
         exportMergeMode: "dedupe",
-        ruleMode: "default",
-        customRules: "",
         mihomoApiUrl: "",
         mihomoSecret: "",
         mihomoTestUrl: "",
@@ -48,6 +47,7 @@ class Database {
 
     this.loadData();
     this.migrateGroups();
+    this.migrateGroupSettings();
     console.log("JSON数据库初始化完成");
   }
 
@@ -114,6 +114,14 @@ class Database {
       this.data.config.remoteConverterUrl = "";
       needsSave = true;
     }
+    if (this.data.config.ruleMode !== undefined) {
+      delete this.data.config.ruleMode;
+      needsSave = true;
+    }
+    if (this.data.config.customRules !== undefined) {
+      delete this.data.config.customRules;
+      needsSave = true;
+    }
 
     if (needsSave) {
       this.saveData();
@@ -154,6 +162,7 @@ class Database {
       id: this.data.nextId++,
       name: "默认分组",
       token: defaultToken,
+      rulePreset: "default",
       created_at: now,
       updated_at: now,
     };
@@ -175,6 +184,22 @@ class Database {
     console.log(
       `分组迁移完成: 默认分组 id=${defaultGroup.id}, 关联 ${this.data.groupSubscriptions.length} 个订阅`
     );
+  }
+
+  migrateGroupSettings() {
+    let needsSave = false;
+    if (Array.isArray(this.data.groups)) {
+      for (const group of this.data.groups) {
+        const normalizedRulePreset = normalizeRulePreset(group.rulePreset);
+        if (group.rulePreset !== normalizedRulePreset) {
+          group.rulePreset = normalizedRulePreset;
+          needsSave = true;
+        }
+      }
+    }
+    if (needsSave) {
+      this.saveData();
+    }
   }
 
   saveData() {
@@ -205,6 +230,7 @@ class Database {
           id: 1,
           name: "默认分组",
           token: "subx123",
+          rulePreset: "default",
           created_at: now,
           updated_at: now,
         },
@@ -264,8 +290,6 @@ class Database {
         remoteConverterProtocol: "https",
         defaultPreviewFormat: "ss",
         exportMergeMode: "dedupe",
-        ruleMode: "default",
-        customRules: "",
         mihomoApiUrl: "",
         mihomoSecret: "",
         mihomoTestUrl: "",
@@ -541,7 +565,7 @@ class Database {
   }
 
   // 添加分组
-  addGroup(name, token) {
+  addGroup(name, token, rulePreset = "default") {
     return new Promise((resolve, reject) => {
       // token 必须唯一
       const exists = (this.data.groups || []).find((g) => g.token === token);
@@ -555,6 +579,7 @@ class Database {
         id: this.data.nextId++,
         name,
         token,
+        rulePreset: normalizeRulePreset(rulePreset),
         created_at: now,
         updated_at: now,
       };
@@ -573,7 +598,7 @@ class Database {
   }
 
   // 更新分组
-  updateGroup(id, name, token) {
+  updateGroup(id, name, token, rulePreset = "default") {
     return new Promise((resolve, reject) => {
       const index = (this.data.groups || []).findIndex((g) => g.id == id);
       if (index === -1) {
@@ -595,6 +620,7 @@ class Database {
         ...current,
         name,
         token,
+        rulePreset: normalizeRulePreset(rulePreset),
         updated_at: new Date().toISOString(),
       };
 

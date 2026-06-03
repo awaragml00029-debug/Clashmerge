@@ -6,6 +6,7 @@ const {
     ADD,
 } = require("../services/converter");
 const { applyExtensionScriptToContent, getExtensionScript, normalizeScript } = require("../services/extension-script");
+const { getRulePresetContent, normalizeRulePreset } = require("../services/native/rule-presets");
 const cache = require("../services/cache");
 
 /**
@@ -31,14 +32,13 @@ function createConversionRoutes(db) {
         return ["clash", "ss", "v2ray"].includes(format) ? format : "clash";
     }
 
-    function createConfigHash(config) {
+    function createConfigHash(config, group) {
         return crypto
             .createHash("sha1")
             .update(JSON.stringify({
                 conversionMode: config?.conversionMode || "native",
                 exportMergeMode: config?.exportMergeMode || "dedupe",
-                ruleMode: config?.ruleMode || "default",
-                customRules: config?.customRules || "",
+                rulePreset: normalizeRulePreset(group?.rulePreset),
                 fixedInbounds: config?.fixedInbounds || [],
                 fileName: config?.fileName || "ClashMerge",
             }))
@@ -152,18 +152,18 @@ function createConversionRoutes(db) {
                 nativeConverterEnabled: true,
                 fileName: "ClashMerge",
                 exportMergeMode: "dedupe",
-                ruleMode: "default",
-                customRules: "",
                 fixedInbounds: [],
             };
         }
 
         const fixedInbounds = normalizeFixedInbounds(config);
         const exportMergeMode = config.exportMergeMode === "none" ? "none" : "dedupe";
-        const ruleMode = config.ruleMode === "custom" ? "custom" : "default";
+        const rulePreset = normalizeRulePreset(group.rulePreset);
+        const customRules = getRulePresetContent(rulePreset);
+        const ruleMode = customRules ? "custom" : "default";
         const conversionMode = "native";
 
-        console.log(`转换模式: ${conversionMode}, 节点处理: ${exportMergeMode}, 规则模式: ${ruleMode}`);
+        console.log(`转换模式: ${conversionMode}, 节点处理: ${exportMergeMode}, 分组规则方案: ${rulePreset}`);
         const extensionScript = getExtensionScript();
 
         let subContent;
@@ -176,7 +176,7 @@ function createConversionRoutes(db) {
                 fixedInbounds,
                 mergeMode: exportMergeMode,
                 ruleMode,
-                customRules: config.customRules || "",
+                customRules,
             });
         } catch (error) {
             console.error('原生转换失败:', error);
@@ -265,7 +265,7 @@ function createConversionRoutes(db) {
                 .update(normalizeScript(extensionScript))
                 .digest("hex")
                 .slice(0, 12);
-            const configHash = createConfigHash(config);
+            const configHash = createConfigHash(config, group);
             const activeSubscriptions = await db.getActiveSubscriptionsByGroup(group.id);
             const subscriptionsHash = createSubscriptionsHash(activeSubscriptions);
             const effectiveMode = "native";
