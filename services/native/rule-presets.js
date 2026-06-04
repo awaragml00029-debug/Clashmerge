@@ -60,83 +60,40 @@ const RULE_PRESETS = [
   {
     id: "acl4ssr",
     name: "ACL4SSR 默认规则",
-    description: "服务端展开 ACL4SSR 常用规则，客户端不需要再下载 rule-providers。",
+    description: "使用 ACL4SSR rule-providers，客户端按需下载规则集。",
   },
 ];
 
-const rulePresetCache = new Map();
-const RULE_PRESET_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const ACL4SSR_DEFAULT_RULES = buildAcl4ssrRuleProviders();
 
 function normalizeRulePreset(value) {
   const preset = String(value || "default").trim();
   return RULE_PRESETS.some((item) => item.id === preset) ? preset : "default";
 }
 
-async function getRulePresetContent(value) {
-  return normalizeRulePreset(value) === "acl4ssr" ? getAcl4ssrRules() : "";
+function getRulePresetContent(value) {
+  return normalizeRulePreset(value) === "acl4ssr" ? ACL4SSR_DEFAULT_RULES : "";
 }
 
-async function getAcl4ssrRules() {
-  const cached = rulePresetCache.get("acl4ssr");
-  if (cached && Date.now() - cached.createdAt < RULE_PRESET_CACHE_TTL_MS) {
-    return cached.content;
-  }
+function buildAcl4ssrRuleProviders() {
+  const providerLines = ACL4SSR_RULE_SOURCES.flatMap((source) => [
+    `  ${source.id}:`,
+    "    type: http",
+    "    behavior: classical",
+    `    url: ${source.url}`,
+    `    path: ./ruleset/${source.id}.list`,
+    "    interval: 86400",
+  ]);
+  const ruleLines = ACL4SSR_RULE_SOURCES.map((source) => `  - RULE-SET,${source.id},${source.policy}`);
 
-  const rules = [];
-  const seen = new Set();
-  for (const source of ACL4SSR_RULE_SOURCES) {
-    const content = await fetchRuleSource(source);
-    for (const line of parseRuleSource(content, source.policy)) {
-      if (seen.has(line)) continue;
-      seen.add(line);
-      rules.push(line);
-    }
-  }
-
-  rules.push("GEOIP,CN,DIRECT");
-  rules.push("MATCH,🚀 节点选择");
-
-  const content = rules.join("\n");
-  rulePresetCache.set("acl4ssr", { content, createdAt: Date.now() });
-  return content;
-}
-
-async function fetchRuleSource(source) {
-  const response = await fetch(source.url, {
-    headers: {
-      "User-Agent": "ClashMerge/1.0",
-    },
-    signal: AbortSignal.timeout(30000),
-  });
-  if (!response.ok) {
-    throw new Error(`规则源下载失败: ${source.id} HTTP ${response.status}`);
-  }
-  return response.text();
-}
-
-function parseRuleSource(content, policy) {
-  return String(content || "")
-    .split(/\r?\n/)
-    .map((line) => normalizeRuleLine(line, policy))
-    .filter(Boolean);
-}
-
-function normalizeRuleLine(line, policy) {
-  const trimmed = String(line || "").trim();
-  if (!trimmed || trimmed.startsWith("#")) return "";
-  if (/^(payload:|---|\.\.\.)$/i.test(trimmed)) return "";
-  const withoutListPrefix = trimmed.replace(/^[-*]\s+/, "").trim();
-  if (!withoutListPrefix || withoutListPrefix.startsWith("#")) return "";
-
-  const parts = withoutListPrefix.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length < 2) return "";
-
-  const last = parts[parts.length - 1].toLowerCase();
-  if (last === "no-resolve") {
-    return [...parts.slice(0, -1), policy, "no-resolve"].join(",");
-  }
-
-  return [...parts, policy].join(",");
+  return [
+    "rule-providers:",
+    ...providerLines,
+    "rules:",
+    ...ruleLines,
+    "  - GEOIP,CN,DIRECT",
+    "  - MATCH,🚀 节点选择",
+  ].join("\n");
 }
 
 function listRulePresets() {
