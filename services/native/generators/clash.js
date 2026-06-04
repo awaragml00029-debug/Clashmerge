@@ -413,10 +413,9 @@ class ClashGenerator extends BaseGenerator {
     const normalized = { ...group };
     delete normalized.include;
 
-    let proxies = this.expandCustomProxyGroupProxies(group, proxyNames, availablePolicies);
-    if (this.isMainSelectGroup(group)) {
-      proxies = this.appendMissingProxyNames(proxies, proxyNames);
-    }
+    const proxies = this.isMainSelectGroup(group)
+      ? this.generateMainSelectGroupProxies(proxyNames, availablePolicies)
+      : this.expandCustomProxyGroupProxies(group, proxyNames, availablePolicies);
 
     if (proxies.length > 0) {
       normalized.proxies = proxies;
@@ -435,13 +434,20 @@ class ClashGenerator extends BaseGenerator {
     return String(name || "").trim() === "🚀 手动切换";
   }
 
-  appendMissingProxyNames(proxies, proxyNames) {
-    const result = Array.isArray(proxies) ? [...proxies] : [];
-    for (const proxyName of proxyNames) {
-      if (proxyName && !result.includes(proxyName)) {
-        result.push(proxyName);
+  generateMainSelectGroupProxies(proxyNames, availablePolicies) {
+    const result = [];
+    const addProxy = (name) => {
+      if (name && availablePolicies.has(name) && !result.includes(name)) {
+        result.push(name);
       }
+    };
+
+    addProxy("♻️ 自动选择");
+    for (const proxyName of proxyNames) {
+      addProxy(proxyName);
     }
+    addProxy("DIRECT");
+
     return result;
   }
 
