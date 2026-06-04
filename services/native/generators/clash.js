@@ -386,7 +386,11 @@ class ClashGenerator extends BaseGenerator {
       return [];
     }
 
-    const customGroupNames = new Set(proxyGroups.map((group) => group?.name).filter(Boolean));
+    const customGroupNames = new Set(
+      proxyGroups
+        .map((group) => group?.name)
+        .filter((name) => name && !this.isManualSelectGroupName(name)),
+    );
     const availablePolicies = new Set([
       "DIRECT",
       "REJECT",
@@ -404,10 +408,16 @@ class ClashGenerator extends BaseGenerator {
 
   normalizeCustomProxyGroup(group, proxyNames, availablePolicies) {
     if (!group || typeof group !== "object" || !group.name) return null;
+    if (this.isManualSelectGroupName(group.name)) return null;
+
     const normalized = { ...group };
     delete normalized.include;
 
-    const proxies = this.expandCustomProxyGroupProxies(group, proxyNames, availablePolicies);
+    let proxies = this.expandCustomProxyGroupProxies(group, proxyNames, availablePolicies);
+    if (this.isMainSelectGroup(group)) {
+      proxies = this.appendMissingProxyNames(proxies, proxyNames);
+    }
+
     if (proxies.length > 0) {
       normalized.proxies = proxies;
     } else if (["select", "url-test", "fallback", "load-balance"].includes(String(group.type || ""))) {
@@ -415,6 +425,24 @@ class ClashGenerator extends BaseGenerator {
     }
 
     return normalized;
+  }
+
+  isMainSelectGroup(group) {
+    return String(group?.type || "") === "select" && String(group?.name || "").trim() === "🚀 节点选择";
+  }
+
+  isManualSelectGroupName(name) {
+    return String(name || "").trim() === "🚀 手动切换";
+  }
+
+  appendMissingProxyNames(proxies, proxyNames) {
+    const result = Array.isArray(proxies) ? [...proxies] : [];
+    for (const proxyName of proxyNames) {
+      if (proxyName && !result.includes(proxyName)) {
+        result.push(proxyName);
+      }
+    }
+    return result;
   }
 
   expandCustomProxyGroupProxies(group, proxyNames, availablePolicies) {
@@ -425,7 +453,13 @@ class ClashGenerator extends BaseGenerator {
     };
 
     for (const name of Array.isArray(group.proxies) ? group.proxies : []) {
-      addProxy(name);
+      if (this.isManualSelectGroupName(name)) {
+        for (const proxyName of proxyNames) {
+          addProxy(proxyName);
+        }
+      } else {
+        addProxy(name);
+      }
     }
 
     const includes = Array.isArray(group.include)
@@ -584,7 +618,9 @@ class ClashGenerator extends BaseGenerator {
 
   getAvailablePolicies(proxies) {
     const customGroupNames = Array.isArray(this.customRuleConfig.proxyGroups)
-      ? this.customRuleConfig.proxyGroups.map((group) => group?.name).filter(Boolean)
+      ? this.customRuleConfig.proxyGroups
+        .map((group) => group?.name)
+        .filter((name) => name && !this.isManualSelectGroupName(name))
       : [];
 
     return new Set([
@@ -621,6 +657,10 @@ class ClashGenerator extends BaseGenerator {
   }
 
   normalizeCustomPolicy(policy, availablePolicies) {
+    if (this.isManualSelectGroupName(policy)) {
+      return "🚀 节点选择";
+    }
+
     if (!policy || availablePolicies.has(policy)) {
       return policy;
     }
