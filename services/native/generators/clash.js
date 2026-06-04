@@ -338,7 +338,23 @@ class ClashGenerator extends BaseGenerator {
 
   generateProxyGroups(proxies) {
     const proxyNames = proxies.map((p) => p.name);
+    const defaultGroups = this.generateDefaultProxyGroups(proxyNames);
+    const customGroups = this.generateCustomProxyGroups(proxyNames);
+    if (customGroups.length === 0) {
+      return defaultGroups;
+    }
 
+    const groups = [];
+    const usedNames = new Set();
+    for (const group of [...customGroups, ...defaultGroups]) {
+      if (!group.name || usedNames.has(group.name)) continue;
+      usedNames.add(group.name);
+      groups.push(group);
+    }
+    return groups;
+  }
+
+  generateDefaultProxyGroups(proxyNames) {
     return [
       {
         name: "🚀 节点选择",
@@ -360,6 +376,81 @@ class ClashGenerator extends BaseGenerator {
         interval: 300,
       },
     ];
+  }
+
+  generateCustomProxyGroups(proxyNames) {
+    const proxyGroups = Array.isArray(this.customRuleConfig.proxyGroups)
+      ? this.customRuleConfig.proxyGroups
+      : [];
+    if (this.ruleMode !== "custom" || proxyGroups.length === 0) {
+      return [];
+    }
+
+    const customGroupNames = new Set(proxyGroups.map((group) => group?.name).filter(Boolean));
+    const availablePolicies = new Set([
+      "DIRECT",
+      "REJECT",
+      "REJECT-DROP",
+      "REJECT-TINYGIF",
+      "PASS",
+      ...customGroupNames,
+      ...proxyNames,
+    ]);
+
+    return proxyGroups
+      .map((group) => this.normalizeCustomProxyGroup(group, proxyNames, availablePolicies))
+      .filter(Boolean);
+  }
+
+  normalizeCustomProxyGroup(group, proxyNames, availablePolicies) {
+    if (!group || typeof group !== "object" || !group.name) return null;
+    const normalized = { ...group };
+    delete normalized.include;
+
+    const proxies = this.expandCustomProxyGroupProxies(group, proxyNames, availablePolicies);
+    if (proxies.length > 0) {
+      normalized.proxies = proxies;
+    } else if (["select", "url-test", "fallback", "load-balance"].includes(String(group.type || ""))) {
+      normalized.proxies = proxyNames.length > 0 ? proxyNames : ["DIRECT"];
+    }
+
+    return normalized;
+  }
+
+  expandCustomProxyGroupProxies(group, proxyNames, availablePolicies) {
+    const proxies = [];
+    const addProxy = (name) => {
+      if (!name || proxies.includes(name)) return;
+      if (availablePolicies.has(name)) proxies.push(name);
+    };
+
+    for (const name of Array.isArray(group.proxies) ? group.proxies : []) {
+      addProxy(name);
+    }
+
+    const includes = Array.isArray(group.include)
+      ? group.include
+      : group.include
+        ? [group.include]
+        : [];
+    for (const pattern of includes) {
+      for (const name of this.filterProxyNames(proxyNames, pattern)) {
+        addProxy(name);
+      }
+    }
+
+    return proxies;
+  }
+
+  filterProxyNames(proxyNames, pattern) {
+    const value = String(pattern || "").trim();
+    if (!value) return [];
+    try {
+      const regex = new RegExp(value, "i");
+      return proxyNames.filter((name) => regex.test(name));
+    } catch {
+      return proxyNames.filter((name) => name.includes(value));
+    }
   }
 
   generateFixedListeners(proxies) {
@@ -459,13 +550,13 @@ class ClashGenerator extends BaseGenerator {
   parseCustomRuleConfig(value) {
     const content = String(value || "").trim();
     if (!content) {
-      return { rules: [], ruleProviders: {} };
+      return { rules: [], ruleProviders: {}, proxyGroups: [] };
     }
 
     try {
       const parsed = yaml.load(content);
       if (Array.isArray(parsed)) {
-        return { rules: parsed, ruleProviders: {} };
+        return { rules: parsed, ruleProviders: {}, proxyGroups: [] };
       }
       if (parsed && typeof parsed === "object") {
         return {
@@ -473,6 +564,7 @@ class ClashGenerator extends BaseGenerator {
           ruleProviders: parsed["rule-providers"] && typeof parsed["rule-providers"] === "object"
             ? parsed["rule-providers"]
             : {},
+          proxyGroups: Array.isArray(parsed["proxy-groups"]) ? parsed["proxy-groups"] : [],
         };
       }
     } catch {
@@ -486,10 +578,15 @@ class ClashGenerator extends BaseGenerator {
         .filter((line) => line && !line.startsWith("#"))
         .map((line) => line.replace(/^[-*]\s+/, "")),
       ruleProviders: {},
+      proxyGroups: [],
     };
   }
 
   getAvailablePolicies(proxies) {
+    const customGroupNames = Array.isArray(this.customRuleConfig.proxyGroups)
+      ? this.customRuleConfig.proxyGroups.map((group) => group?.name).filter(Boolean)
+      : [];
+
     return new Set([
       "🚀 节点选择",
       "♻️ 自动选择",
@@ -499,6 +596,7 @@ class ClashGenerator extends BaseGenerator {
       "REJECT-DROP",
       "REJECT-TINYGIF",
       "PASS",
+      ...customGroupNames,
       ...proxies.map((proxy) => proxy.name),
     ]);
   }
