@@ -6,7 +6,7 @@ const {
     ADD,
 } = require("../services/converter");
 const { applyExtensionScriptToContent, getExtensionScript, normalizeScript } = require("../services/extension-script");
-const { getRulePresetContent, normalizeRulePreset } = require("../services/native/rule-presets");
+const { getRulePresetContent, mergeDomainSuffixRules, normalizeDomainSuffixRules, normalizeRulePreset } = require("../services/native/rule-presets");
 const cache = require("../services/cache");
 
 /**
@@ -39,6 +39,7 @@ function createConversionRoutes(db) {
                 conversionMode: config?.conversionMode || "native",
                 exportMergeMode: config?.exportMergeMode || "dedupe",
                 rulePreset: normalizeRulePreset(group?.rulePreset),
+                domainSuffixRules: normalizeDomainSuffixRules(group?.domainSuffixRules),
                 fixedInbounds: config?.fixedInbounds || [],
                 fileName: config?.fileName || "ClashMerge",
             }))
@@ -159,11 +160,12 @@ function createConversionRoutes(db) {
         const fixedInbounds = normalizeFixedInbounds(config);
         const exportMergeMode = config.exportMergeMode === "none" ? "none" : "dedupe";
         const rulePreset = normalizeRulePreset(group.rulePreset);
-        const customRules = await getRulePresetContent(rulePreset);
+        const domainSuffixRules = normalizeDomainSuffixRules(group.domainSuffixRules);
+        const customRules = mergeDomainSuffixRules(await getRulePresetContent(rulePreset), domainSuffixRules);
         const ruleMode = customRules ? "custom" : "default";
         const conversionMode = "native";
 
-        console.log(`转换模式: ${conversionMode}, 节点处理: ${exportMergeMode}, 分组规则方案: ${rulePreset}`);
+        console.log(`转换模式: ${conversionMode}, 节点处理: ${exportMergeMode}, 分组规则方案: ${rulePreset}, 手动域名规则: ${domainSuffixRules.length}`);
         const extensionScript = getExtensionScript();
 
         let subContent;

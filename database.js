@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { normalizeRulePreset } = require("./services/native/rule-presets");
+const { normalizeDomainSuffixRules, normalizeRulePreset } = require("./services/native/rule-presets");
 
 class Database {
   constructor() {
@@ -163,6 +163,7 @@ class Database {
       name: "默认分组",
       token: defaultToken,
       rulePreset: "default",
+      domainSuffixRules: [],
       created_at: now,
       updated_at: now,
     };
@@ -193,6 +194,12 @@ class Database {
         const normalizedRulePreset = normalizeRulePreset(group.rulePreset);
         if (group.rulePreset !== normalizedRulePreset) {
           group.rulePreset = normalizedRulePreset;
+          needsSave = true;
+        }
+
+        const normalizedDomainSuffixRules = normalizeDomainSuffixRules(group.domainSuffixRules);
+        if (!Array.isArray(group.domainSuffixRules) || JSON.stringify(group.domainSuffixRules) !== JSON.stringify(normalizedDomainSuffixRules)) {
+          group.domainSuffixRules = normalizedDomainSuffixRules;
           needsSave = true;
         }
       }
@@ -231,6 +238,7 @@ class Database {
           name: "默认分组",
           token: "subx123",
           rulePreset: "default",
+          domainSuffixRules: [],
           created_at: now,
           updated_at: now,
         },
@@ -565,7 +573,7 @@ class Database {
   }
 
   // 添加分组
-  addGroup(name, token, rulePreset = "default") {
+  addGroup(name, token, rulePreset = "default", domainSuffixRules = []) {
     return new Promise((resolve, reject) => {
       // token 必须唯一
       const exists = (this.data.groups || []).find((g) => g.token === token);
@@ -580,6 +588,7 @@ class Database {
         name,
         token,
         rulePreset: normalizeRulePreset(rulePreset),
+        domainSuffixRules: normalizeDomainSuffixRules(domainSuffixRules),
         created_at: now,
         updated_at: now,
       };
@@ -598,7 +607,7 @@ class Database {
   }
 
   // 更新分组
-  updateGroup(id, name, token, rulePreset = "default") {
+  updateGroup(id, name, token, rulePreset = "default", domainSuffixRules = []) {
     return new Promise((resolve, reject) => {
       const index = (this.data.groups || []).findIndex((g) => g.id == id);
       if (index === -1) {
@@ -621,6 +630,7 @@ class Database {
         name,
         token,
         rulePreset: normalizeRulePreset(rulePreset),
+        domainSuffixRules: normalizeDomainSuffixRules(domainSuffixRules),
         updated_at: new Date().toISOString(),
       };
 

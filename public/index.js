@@ -50,6 +50,24 @@ function formatRulePreset(rulePreset) {
   return rulePreset === "acl4ssr" ? "ACL4SSR 默认规则" : "默认规则";
 }
 
+function formatDomainSuffixRules(rules = []) {
+  return Array.isArray(rules)
+    ? rules
+      .map((rule) => {
+        if (typeof rule === "string") return rule;
+        const domain = String(rule?.domain || rule?.suffix || rule?.value || "").trim();
+        const policy = String(rule?.policy || rule?.target || "").trim();
+        return domain ? `${domain}${policy ? `,${policy}` : ""}` : "";
+      })
+      .filter(Boolean)
+      .join("\n")
+    : "";
+}
+
+function getDomainSuffixRuleCount(rules = []) {
+  return Array.isArray(rules) ? rules.length : 0;
+}
+
 function escapeHtml(text = "") {
   const div = document.createElement("div");
   div.textContent = String(text ?? "");
@@ -1910,7 +1928,8 @@ class GroupManager {
     }
 
     groupName.textContent = this.currentGroup.name;
-    groupHint.textContent = `当前所有操作都会作用在这个分组上，规则方案：${formatRulePreset(this.currentGroup.rulePreset)}。`;
+    const manualRuleCount = getDomainSuffixRuleCount(this.currentGroup.domainSuffixRules);
+    groupHint.textContent = `当前所有操作都会作用在这个分组上，规则方案：${formatRulePreset(this.currentGroup.rulePreset)}，手动域名规则：${manualRuleCount} 条。`;
     groupStatus.textContent = "已连接";
     groupStatus.classList.add("is-active");
     groupLink.value = this.getCurrentGroupUrl();
@@ -2004,7 +2023,7 @@ class GroupManager {
                 ${escapeHtml(group.name)}
                 ${isCurrent ? '<span class="status-chip is-active">当前分组</span>' : ""}
               </div>
-              <div class="group-item-token">${escapeHtml(group.token)} · ${escapeHtml(formatRulePreset(group.rulePreset))}</div>
+              <div class="group-item-token">${escapeHtml(group.token)} · ${escapeHtml(formatRulePreset(group.rulePreset))} · 手动域名 ${getDomainSuffixRuleCount(group.domainSuffixRules)} 条</div>
             </div>
             <div class="group-item-actions">
               <button type="button" class="btn btn-neutral btn-sm" onclick="groupManager.onGroupChange(${group.id})">
@@ -2028,6 +2047,7 @@ class GroupManager {
     document.getElementById("groupEdit-name").value = "";
     document.getElementById("groupEdit-token").value = "";
     document.getElementById("groupEdit-rulePreset").value = "default";
+    document.getElementById("groupEdit-domainSuffixRules").value = "";
     CustomSelect.syncById("groupEdit-rulePreset");
     document.getElementById("groupEditTitle").textContent = "新建分组";
     openModal("groupEditModal");
@@ -2043,6 +2063,7 @@ class GroupManager {
     document.getElementById("groupEdit-name").value = group.name;
     document.getElementById("groupEdit-token").value = group.token;
     document.getElementById("groupEdit-rulePreset").value = group.rulePreset || "default";
+    document.getElementById("groupEdit-domainSuffixRules").value = formatDomainSuffixRules(group.domainSuffixRules);
     CustomSelect.syncById("groupEdit-rulePreset");
     document.getElementById("groupEditTitle").textContent = "编辑分组";
     openModal("groupEditModal");
@@ -2062,6 +2083,10 @@ class GroupManager {
     const name = document.getElementById("groupEdit-name").value.trim();
     const token = document.getElementById("groupEdit-token").value.trim();
     const rulePreset = document.getElementById("groupEdit-rulePreset").value || "default";
+    const domainSuffixRules = document.getElementById("groupEdit-domainSuffixRules").value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
 
     if (!name || !token) {
       createGlobalToast("分组名称和 Token 不能为空。", "error");
@@ -2076,7 +2101,7 @@ class GroupManager {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, token, rulePreset }),
+        body: JSON.stringify({ name, token, rulePreset, domainSuffixRules }),
       });
 
       const result = await response.json();

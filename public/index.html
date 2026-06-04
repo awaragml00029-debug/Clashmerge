@@ -434,6 +434,11 @@
             </select>
             <div class="form-help">每个分组独立选择。复制该分组订阅地址后，服务端会按这里的规则方案生成 Clash 配置。</div>
           </div>
+          <div class="form-group">
+            <label for="groupEdit-domainSuffixRules">手动域名后缀规则</label>
+            <textarea id="groupEdit-domainSuffixRules" rows="5" placeholder="abc.com,🚀 节点选择&#10;cn,DIRECT"></textarea>
+            <div class="form-help">每行一个：域名后缀,策略组。要匹配任意 abc.com 子域名就填 abc.com；策略组可省略，默认走 🚀 节点选择。示例：google.com,🚀 节点选择 或 cn,DIRECT。</div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">

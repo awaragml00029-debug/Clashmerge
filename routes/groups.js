@@ -4,7 +4,7 @@ const NativeConverter = require("../services/native");
 const { ClashGenerator } = require("../services/native/generators");
 const MihomoHealthService = require("../services/mihomo-health");
 const { applyExtensionScriptToContent, getExtensionScript } = require("../services/extension-script");
-const { getRulePresetContent, listRulePresets, normalizeRulePreset } = require("../services/native/rule-presets");
+const { getRulePresetContent, listRulePresets, mergeDomainSuffixRules, normalizeDomainSuffixRules, normalizeRulePreset } = require("../services/native/rule-presets");
 const router = express.Router();
 
 function expandSubscriptionUrls(subscriptions) {
@@ -115,7 +115,8 @@ async function generateGroupMihomoConfig(db, groupId, config) {
   const groups = await db.getGroups();
   const group = groups.find((item) => String(item.id) === String(groupId));
   const rulePreset = normalizeRulePreset(group?.rulePreset);
-  const customRules = await getRulePresetContent(rulePreset);
+  const domainSuffixRules = normalizeDomainSuffixRules(group?.domainSuffixRules);
+  const customRules = mergeDomainSuffixRules(await getRulePresetContent(rulePreset), domainSuffixRules);
   const subscriptions = await db.getActiveSubscriptionsByGroup(groupId);
   const urls = expandSubscriptionUrls(subscriptions);
   if (urls.length === 0) {
@@ -165,13 +166,18 @@ function createGroupRoutes(db) {
   // 添加分组
   router.post("/api/groups", async (req, res) => {
     try {
-      const { name, token, rulePreset } = req.body;
+      const { name, token, rulePreset, domainSuffixRules } = req.body;
 
       if (!name || !token) {
         return res.status(400).json({ error: "分组名称和 Token 不能为空" });
       }
 
-      const group = await db.addGroup(name, token, normalizeRulePreset(rulePreset));
+      const group = await db.addGroup(
+        name,
+        token,
+        normalizeRulePreset(rulePreset),
+        normalizeDomainSuffixRules(domainSuffixRules),
+      );
       res.json({ message: "分组创建成功", data: group });
     } catch (error) {
       console.error("创建分组失败:", error);
@@ -187,13 +193,19 @@ function createGroupRoutes(db) {
   router.put("/api/groups/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, token, rulePreset } = req.body;
+      const { name, token, rulePreset, domainSuffixRules } = req.body;
 
       if (!name || !token) {
         return res.status(400).json({ error: "分组名称和 Token 不能为空" });
       }
 
-      const result = await db.updateGroup(id, name, token, normalizeRulePreset(rulePreset));
+      const result = await db.updateGroup(
+        id,
+        name,
+        token,
+        normalizeRulePreset(rulePreset),
+        normalizeDomainSuffixRules(domainSuffixRules),
+      );
       if (result.changes === 0) {
         return res.status(404).json({ error: "分组不存在" });
       }

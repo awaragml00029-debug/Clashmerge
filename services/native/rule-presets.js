@@ -2,6 +2,7 @@ const yaml = require("js-yaml");
 
 const ACL4SSR_CONFIG_URL = "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full.ini";
 const RULE_PRESET_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const DEFAULT_MANUAL_RULE_POLICY = "🚀 节点选择";
 const CLASH_RULE_TYPES = new Set([
   "DOMAIN",
   "DOMAIN-SUFFIX",
@@ -297,12 +298,129 @@ function appendClashRulePolicy(rule, policy) {
   return normalized.join(",");
 }
 
+function normalizeDomainSuffixRules(value) {
+  const source = Array.isArray(value)
+    ? value
+    : String(value || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  const rules = [];
+  const seen = new Set();
+
+  for (const item of source) {
+    const parsed = parseDomainSuffixRuleItem(item);
+    if (!parsed) continue;
+
+    const key = `${parsed.domain},${parsed.policy}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rules.push(parsed);
+  }
+
+  return rules;
+}
+
+function parseDomainSuffixRuleItem(item) {
+  let domain = "";
+  let policy = DEFAULT_MANUAL_RULE_POLICY;
+
+  if (item && typeof item === "object") {
+    domain = item.domain || item.suffix || item.value || "";
+    policy = item.policy || item.target || DEFAULT_MANUAL_RULE_POLICY;
+  } else {
+    const text = stripLineComment(String(item || "").trim());
+    if (!text) return null;
+    const parts = text.split(",").map((part) => part.trim()).filter(Boolean);
+    if (/^DOMAIN-SUFFIX$/i.test(parts[0])) {
+      domain = parts[1] || "";
+      policy = parts[2] || DEFAULT_MANUAL_RULE_POLICY;
+    } else {
+      domain = parts[0] || "";
+      policy = parts[1] || DEFAULT_MANUAL_RULE_POLICY;
+    }
+  }
+
+  const normalizedDomain = normalizeDomainSuffix(domain);
+  const normalizedPolicy = String(policy || DEFAULT_MANUAL_RULE_POLICY).trim() || DEFAULT_MANUAL_RULE_POLICY;
+  if (!normalizedDomain) return null;
+
+  return {
+    domain: normalizedDomain,
+    policy: normalizedPolicy,
+  };
+}
+
+function stripLineComment(value) {
+  return String(value || "")
+    .replace(/\s+#.*$/, "")
+    .replace(/\s+;.*$/, "")
+    .trim();
+}
+
+function normalizeDomainSuffix(value) {
+  let domain = String(value || "").trim().toLowerCase();
+  if (!domain) return "";
+
+  if (/^https?:\/\//i.test(domain)) {
+    try {
+      domain = new URL(domain).hostname;
+    } catch {
+      domain = domain.replace(/^https?:\/\//i, "");
+    }
+  }
+
+  domain = domain
+    .split(/[/?#]/)[0]
+    .replace(/:\d+$/, "")
+    .replace(/^\*\./, "")
+    .replace(/^\+?\./, "")
+    .replace(/\.$/, "");
+
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)*$/.test(domain)) return "";
+  return domain;
+}
+
+function formatDomainSuffixRuleLines(value) {
+  return normalizeDomainSuffixRules(value).map((rule) => `DOMAIN-SUFFIX,${rule.domain},${rule.policy}`);
+}
+
+function mergeDomainSuffixRules(customRules, domainSuffixRules) {
+  const manualRules = formatDomainSuffixRuleLines(domainSuffixRules);
+  const content = String(customRules || "").trim();
+  if (manualRules.length === 0) return content;
+  if (!content) return yaml.dump({ rules: manualRules }, { lineWidth: -1, noRefs: true });
+
+  try {
+    const parsed = yaml.load(content);
+    if (Array.isArray(parsed)) {
+      return yaml.dump([...manualRules, ...parsed], { lineWidth: -1, noRefs: true });
+    }
+    if (parsed && typeof parsed === "object") {
+      return yaml.dump(
+        {
+          ...parsed,
+          rules: [...manualRules, ...(Array.isArray(parsed.rules) ? parsed.rules : [])],
+        },
+        { lineWidth: -1, noRefs: true },
+      );
+    }
+  } catch {
+    // 不是 YAML 结构时按逐行规则合并。
+  }
+
+  return [...manualRules, ...content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)].join("\n");
+}
+
 function listRulePresets() {
   return RULE_PRESETS.map((item) => ({ ...item }));
 }
 
 module.exports = {
+  formatDomainSuffixRuleLines,
   getRulePresetContent,
   listRulePresets,
+  mergeDomainSuffixRules,
+  normalizeDomainSuffixRules,
   normalizeRulePreset,
 };
