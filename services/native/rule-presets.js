@@ -2,6 +2,51 @@ const yaml = require("js-yaml");
 
 const ACL4SSR_CONFIG_URL = "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full.ini";
 const RULE_PRESET_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CLASH_RULE_TYPES = new Set([
+  "DOMAIN",
+  "DOMAIN-SUFFIX",
+  "DOMAIN-KEYWORD",
+  "IP-CIDR",
+  "SRC-IP-CIDR",
+  "GEOIP",
+  "MATCH",
+  "FINAL",
+  "IP-CIDR6",
+  "SRC-PORT",
+  "DST-PORT",
+  "PROCESS-NAME",
+  "DOMAIN-REGEX",
+  "GEOSITE",
+  "IP-SUFFIX",
+  "IP-ASN",
+  "SRC-GEOIP",
+  "SRC-IP-ASN",
+  "SRC-IP-SUFFIX",
+  "IN-PORT",
+  "IN-TYPE",
+  "IN-USER",
+  "IN-NAME",
+  "PROCESS-PATH-REGEX",
+  "PROCESS-PATH",
+  "PROCESS-NAME-REGEX",
+  "UID",
+  "NETWORK",
+  "DSCP",
+  "SUB-RULE",
+  "RULE-SET",
+  "AND",
+  "OR",
+  "NOT",
+]);
+const CLASH_COMMA_PAYLOAD_RULE_TYPES = new Set([
+  "AND",
+  "OR",
+  "NOT",
+  "SUB-RULE",
+  "DOMAIN-REGEX",
+  "PROCESS-NAME-REGEX",
+  "PROCESS-PATH-REGEX",
+]);
 
 const RULE_PRESETS = [
   {
@@ -174,24 +219,82 @@ function parseRuleSource(content, policy) {
 
 function normalizeRuleLine(line, policy) {
   const trimmed = String(line || "").trim();
-  if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith(";")) return "";
+  if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith(";") || trimmed.startsWith("//")) return "";
   if (/^(payload:|---|\.\.\.)$/i.test(trimmed)) return "";
-  const withoutListPrefix = trimmed.replace(/^[-*]\s+/, "").trim();
-  if (!withoutListPrefix || withoutListPrefix.startsWith("#") || withoutListPrefix.startsWith(";")) return "";
 
-  if (/^(final|match)$/i.test(withoutListPrefix)) {
-    return `MATCH,${policy}`;
+  const rule = stripRuleQuotes(trimmed.replace(/^[-*]\s+/, "").trim());
+  if (!rule || rule.startsWith("#") || rule.startsWith(";") || rule.startsWith("//")) return "";
+  if (/^(final|match)$/i.test(rule)) return `MATCH,${policy}`;
+
+  const commaIndex = rule.indexOf(",");
+  if (commaIndex === -1) {
+    return normalizePayloadRuleLine(rule, policy);
   }
 
-  const parts = withoutListPrefix.split(",").map((part) => part.trim()).filter(Boolean);
-  if (parts.length < 2) return "";
+  const ruleType = rule.slice(0, commaIndex).trim().toUpperCase();
+  if (ruleType === "FINAL" || ruleType === "MATCH") return `MATCH,${policy}`;
+  if (!CLASH_RULE_TYPES.has(ruleType)) return "";
 
-  const last = parts[parts.length - 1].toLowerCase();
-  if (last === "no-resolve") {
-    return [...parts.slice(0, -1), policy, "no-resolve"].join(",");
+  const withoutComment = stripInlineComment(rule);
+  if (!withoutComment) return "";
+  if (CLASH_COMMA_PAYLOAD_RULE_TYPES.has(ruleType)) {
+    return `${withoutComment},${policy}`;
   }
 
-  return [...parts, policy].join(",");
+  return appendClashRulePolicy(withoutComment, policy);
+}
+
+function stripRuleQuotes(value) {
+  const text = String(value || "").trim();
+  if (text.length >= 2) {
+    const first = text[0];
+    const last = text[text.length - 1];
+    if ((first === "'" && last === "'") || (first === '"' && last === '"')) {
+      return text.slice(1, -1).trim();
+    }
+  }
+  return text;
+}
+
+function stripInlineComment(value) {
+  const text = String(value || "").trim();
+  const commentIndex = text.indexOf("//");
+  if (commentIndex === -1) return text;
+  return text.slice(0, commentIndex).trim();
+}
+
+function normalizePayloadRuleLine(rule, policy) {
+  const value = stripInlineComment(rule);
+  if (!value || /\s/.test(value)) return "";
+
+  if (/^\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2}$/.test(value)) {
+    return `IP-CIDR,${value},${policy}`;
+  }
+  if (/^[0-9a-f:.]+\/\d{1,3}$/i.test(value) && value.includes(":")) {
+    return `IP-CIDR6,${value},${policy}`;
+  }
+
+  if (value.startsWith("+.") || value.startsWith(".")) {
+    return `DOMAIN-SUFFIX,${value.replace(/^\+?\./, "")},${policy}`;
+  }
+
+  if (/^[a-z0-9.-]+$/i.test(value)) {
+    return `DOMAIN,${value},${policy}`;
+  }
+
+  return "";
+}
+
+function appendClashRulePolicy(rule, policy) {
+  const parts = String(rule || "").split(",").map((part) => part.trim());
+  if (parts.length < 2 || !parts[0] || !parts[1]) return "";
+
+  const normalized = [parts[0].toUpperCase(), parts[1], policy];
+  const option = parts[2];
+  if (option && /^no-resolve$/i.test(option)) {
+    normalized.push("no-resolve");
+  }
+  return normalized.join(",");
 }
 
 function listRulePresets() {
