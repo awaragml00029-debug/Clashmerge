@@ -115,7 +115,7 @@ async function generateGroupMihomoConfig(db, groupId, config) {
   const groups = await db.getGroups();
   const group = groups.find((item) => String(item.id) === String(groupId));
   const rulePreset = normalizeRulePreset(group?.rulePreset);
-  const customRules = getRulePresetContent(rulePreset);
+  const customRules = await getRulePresetContent(rulePreset);
   const subscriptions = await db.getActiveSubscriptionsByGroup(groupId);
   const urls = expandSubscriptionUrls(subscriptions);
   if (urls.length === 0) {

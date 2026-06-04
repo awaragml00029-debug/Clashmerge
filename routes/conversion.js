@@ -159,7 +159,7 @@ function createConversionRoutes(db) {
         const fixedInbounds = normalizeFixedInbounds(config);
         const exportMergeMode = config.exportMergeMode === "none" ? "none" : "dedupe";
         const rulePreset = normalizeRulePreset(group.rulePreset);
-        const customRules = getRulePresetContent(rulePreset);
+        const customRules = await getRulePresetContent(rulePreset);
         const ruleMode = customRules ? "custom" : "default";
         const conversionMode = "native";
 
