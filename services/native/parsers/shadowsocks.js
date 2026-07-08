@@ -183,11 +183,14 @@ class ShadowsocksParser extends BaseParser {
 
     normalizePluginName(plugin) {
         const normalized = String(plugin || '').toLowerCase().replace(/_/g, '-');
-        return normalized === 'shadowtls' ? 'shadow-tls' : plugin;
+        if (normalized === 'shadowtls') return 'shadow-tls';
+        if (normalized === 'v2ray-plugin') return 'v2ray-plugin';
+        return plugin;
     }
 
     normalizePluginOpts(plugin, pluginOpts) {
         const normalized = String(plugin || '').toLowerCase().replace(/_/g, '-');
+        if (normalized === 'v2ray-plugin') return this.normalizeV2RayPluginOpts(pluginOpts);
         if (normalized !== 'shadow-tls' && normalized !== 'shadowtls') return pluginOpts;
 
         const host = String(pluginOpts.host || '').split(';')[0].trim();
@@ -198,6 +201,39 @@ class ShadowsocksParser extends BaseParser {
         if (password) result.password = password;
         if (version) result.version = version;
         return result;
+    }
+
+    normalizeV2RayPluginOpts(pluginOpts) {
+        const result = {};
+        const mode = this.normalizeV2RayPluginMode(pluginOpts.mode || pluginOpts.obfs || pluginOpts.transport);
+        const host = String(pluginOpts.host || pluginOpts['obfs-host'] || pluginOpts.obfsHost || '').trim();
+        const path = String(pluginOpts.path || '').trim();
+        const tls = this.parsePluginBoolean(pluginOpts.tls);
+        const mux = this.parsePluginBoolean(pluginOpts.mux);
+
+        result.mode = mode || 'websocket';
+        if (tls !== undefined) result.tls = tls;
+        if (host) result.host = host;
+        if (path) result.path = path;
+        if (mux !== undefined) result.mux = mux;
+        return result;
+    }
+
+    normalizeV2RayPluginMode(value) {
+        const mode = String(value || '').trim().toLowerCase();
+        if (!mode) return '';
+        if (mode === 'ws') return 'websocket';
+        return mode;
+    }
+
+    parsePluginBoolean(value) {
+        if (value === undefined || value === null || value === '') return undefined;
+        if (value === true || value === 1) return true;
+        if (value === false || value === 0) return false;
+        const normalized = String(value).trim().toLowerCase();
+        if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+        if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+        return true;
     }
 
     detectShadowTLSVersion(pluginOpts) {

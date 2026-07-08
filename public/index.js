@@ -1181,6 +1181,59 @@ class SubscriptionManager {
   }
 }
 
+class MihomoConverter {
+  async convert() {
+    const input = document.getElementById("mihomoConverterInput");
+    const output = document.getElementById("mihomoConverterOutput");
+    const summary = document.getElementById("mihomoConverterSummary");
+    const content = input.value.trim();
+
+    if (!content) {
+      createGlobalToast("请先粘贴 Mihomo 节点 YAML。", "error");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/tools/mihomo-to-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "转换失败");
+      }
+
+      output.value = result.content || "";
+      const unsupported = Array.isArray(result.unsupported) && result.unsupported.length > 0
+        ? `，跳过 ${result.unsupported.length} 个暂不支持节点`
+        : "";
+      summary.textContent = `已解析 ${result.parsed || 0} 个节点，转换 ${result.converted || 0} 条链接${unsupported}。`;
+      createGlobalToast("转换完成。", "success");
+    } catch (error) {
+      summary.textContent = error.message;
+      createGlobalToast(`转换失败：${error.message}`, "error");
+    }
+  }
+
+  async copyOutput() {
+    const output = document.getElementById("mihomoConverterOutput");
+    const value = output.value.trim();
+    if (!value) {
+      createGlobalToast("没有可复制的转换结果。", "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      createGlobalToast("已复制转换结果。", "success");
+    } catch (error) {
+      console.error("Copy converter output failed:", error);
+      createGlobalToast("复制失败，请手动复制。", "error");
+    }
+  }
+}
+
 class ConfigManager {
   constructor() {
     this.extensionScriptEditor = new AceScriptEditor("modal-extensionScriptEditor");
@@ -2321,6 +2374,7 @@ class GroupManager {
 }
 
 const subscriptionManager = new SubscriptionManager();
+const mihomoConverter = new MihomoConverter();
 const configManager = new ConfigManager();
 const groupManager = new GroupManager();
 
@@ -2375,6 +2429,10 @@ function openConfigModal() {
 function openGroupManageModal() {
   groupManager.renderGroupList();
   openModal("groupManageModal");
+}
+
+function openMihomoConverterModal() {
+  openModal("mihomoConverterModal");
 }
 
 function openAddModal() {

@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const YAMLParser = require("../services/native/parsers/yaml");
+const { ShareLinkGenerator } = require("../services/native/generators");
 
 const USAGE_TTL_MS = 3 * 60 * 1000;
 const USAGE_TIMEOUT_MS = 8000;
@@ -217,6 +219,42 @@ function createSubscriptionRoutes(db) {
         } catch (error) {
             console.error("Failed to fetch usage info:", error);
             res.status(500).json({ error: "Failed to fetch usage info" });
+        }
+    });
+
+    router.post("/api/tools/mihomo-to-links", async (req, res) => {
+        try {
+            const content = String(req.body?.content || "").trim();
+            if (!content) {
+                return res.status(400).json({ error: "请粘贴 Mihomo 节点 YAML" });
+            }
+
+            const parser = new YAMLParser();
+            const nodes = parser.parse(content);
+            if (nodes.length === 0) {
+                return res.status(400).json({ error: "没有解析到可转换的 Mihomo 节点" });
+            }
+
+            const generator = new ShareLinkGenerator();
+            const result = generator.generateWithStats(nodes);
+            if (result.links.length === 0) {
+                return res.status(400).json({
+                    error: "解析到了节点，但当前类型还不能生成分享链接",
+                    parsed: result.total,
+                    unsupported: result.unsupported,
+                });
+            }
+
+            res.json({
+                links: result.links,
+                content: result.links.join("\n"),
+                parsed: result.total,
+                converted: result.links.length,
+                unsupported: result.unsupported,
+            });
+        } catch (error) {
+            console.error("Mihomo 节点转链接失败:", error);
+            res.status(500).json({ error: error.message || "Mihomo 节点转链接失败" });
         }
     });
 

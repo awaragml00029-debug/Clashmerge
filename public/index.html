@@ -22,6 +22,9 @@
         <button type="button" class="hero-btn hero-btn-secondary" onclick="openConfigModal()">
           系统配置
         </button>
+        <button type="button" class="hero-btn hero-btn-secondary" onclick="openMihomoConverterModal()">
+          节点 YAML 转链接
+        </button>
         <button type="button" class="hero-btn hero-btn-ghost" onclick="logout()">
           退出登录
         </button>
@@ -354,6 +357,40 @@
         </button>
         <button type="submit" form="editForm" class="btn-modal btn-modal-primary">
           保存修改
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mihomoConverterModal" class="modal">
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h2 class="modal-title">Mihomo 节点 YAML 转链接</h2>
+        <button type="button" class="close" onclick="closeModal('mihomoConverterModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="converter-grid">
+          <div class="form-group">
+            <label for="mihomoConverterInput">Mihomo 节点 YAML</label>
+            <textarea id="mihomoConverterInput" rows="14" placeholder="proxies:&#10;  - name: ss-v2ray&#10;    type: ss&#10;    server: example.com&#10;    port: 443&#10;    cipher: aes-128-gcm&#10;    password: password&#10;    plugin: v2ray-plugin&#10;    plugin-opts:&#10;      mode: websocket&#10;      tls: true&#10;      host: cdn.example.com&#10;      path: /ws"></textarea>
+            <div class="form-help">支持完整 `proxies:` 配置，也支持只粘贴单个 Mihomo 节点。当前会输出 ss://、trojan://、vmess://、vless://、ssr:// 等分享链接。</div>
+          </div>
+          <div class="form-group">
+            <label for="mihomoConverterOutput">转换结果</label>
+            <textarea id="mihomoConverterOutput" rows="14" readonly placeholder="转换后的分享链接会显示在这里"></textarea>
+            <div id="mihomoConverterSummary" class="form-help">等待转换。</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal btn-modal-secondary" onclick="closeModal('mihomoConverterModal')">
+          关闭
+        </button>
+        <button type="button" class="btn-modal btn-modal-secondary" onclick="mihomoConverter.copyOutput()">
+          复制结果
+        </button>
+        <button type="button" class="btn-modal btn-modal-primary" onclick="mihomoConverter.convert()">
+          转换
         </button>
       </div>
     </div>

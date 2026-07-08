@@ -31,10 +31,16 @@ class YAMLParser extends BaseParser {
                 return [];
             }
 
-            // 提取代理节点列表
-            const proxies = config.proxies || config.Proxy || [];
+            // 提取代理节点列表。支持完整 proxies 配置、代理数组，或单个 Mihomo 代理对象。
+            const proxies = Array.isArray(config)
+                ? config
+                : Array.isArray(config.proxies || config.Proxy)
+                    ? (config.proxies || config.Proxy)
+                    : config.type
+                        ? [config]
+                        : [];
 
-            if (!Array.isArray(proxies)) {
+            if (!Array.isArray(proxies) || proxies.length === 0) {
                 console.error('YAML 配置中没有找到有效的代理列表');
                 return [];
             }

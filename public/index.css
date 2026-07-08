@@ -254,6 +254,18 @@ textarea {
     align-items: start;
 }
 
+.converter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.converter-grid textarea {
+    min-height: 360px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
 .workspace-sidebar {
     display: grid;
     gap: 18px;

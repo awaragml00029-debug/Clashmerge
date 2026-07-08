@@ -131,6 +131,7 @@ class ClashGenerator extends BaseGenerator {
         proxy.cipher = node.method;
         proxy.password = node.password;
         const isShadowTLS = this.isShadowTLSPlugin(node.plugin);
+        const isV2RayPlugin = this.isV2RayPlugin(node.plugin);
         if (node.udp_over_tcp !== undefined && node.udp_over_tcp !== null) {
           proxy["udp-over-tcp"] = node.udp_over_tcp;
         } else if (isShadowTLS) {
@@ -152,8 +153,12 @@ class ClashGenerator extends BaseGenerator {
           proxy.smux = { enabled: false };
         }
         if (node.plugin) {
-          proxy.plugin = isShadowTLS ? "shadow-tls" : node.plugin;
-          proxy["plugin-opts"] = isShadowTLS ? this.normalizeShadowTLSPluginOpts(node.plugin_opts || {}) : node.plugin_opts || {};
+          proxy.plugin = isShadowTLS ? "shadow-tls" : isV2RayPlugin ? "v2ray-plugin" : node.plugin;
+          proxy["plugin-opts"] = isShadowTLS
+            ? this.normalizeShadowTLSPluginOpts(node.plugin_opts || {})
+            : isV2RayPlugin
+              ? this.normalizeV2RayPluginOpts(node.plugin_opts || {})
+              : node.plugin_opts || {};
         }
         if (node.fingerprint) {
           proxy["client-fingerprint"] = node.fingerprint;
@@ -309,6 +314,44 @@ class ClashGenerator extends BaseGenerator {
   isShadowTLSPlugin(plugin) {
     const normalized = String(plugin || "").toLowerCase().replace(/_/g, "-");
     return normalized === "shadow-tls" || normalized === "shadowtls";
+  }
+
+  isV2RayPlugin(plugin) {
+    const normalized = String(plugin || "").toLowerCase().replace(/_/g, "-");
+    return normalized === "v2ray-plugin";
+  }
+
+  normalizeV2RayPluginOpts(pluginOpts) {
+    const result = {};
+    const mode = this.normalizeV2RayPluginMode(pluginOpts.mode || pluginOpts.obfs || pluginOpts.transport);
+    const host = String(pluginOpts.host || pluginOpts["obfs-host"] || pluginOpts.obfsHost || "").trim();
+    const path = String(pluginOpts.path || "").trim();
+    const tls = this.parsePluginBoolean(pluginOpts.tls);
+    const mux = this.parsePluginBoolean(pluginOpts.mux);
+
+    result.mode = mode || "websocket";
+    if (tls !== undefined) result.tls = tls;
+    if (host) result.host = host;
+    if (path) result.path = path;
+    if (mux !== undefined) result.mux = mux;
+    return result;
+  }
+
+  normalizeV2RayPluginMode(value) {
+    const mode = String(value || "").trim().toLowerCase();
+    if (!mode) return "";
+    if (mode === "ws") return "websocket";
+    return mode;
+  }
+
+  parsePluginBoolean(value) {
+    if (value === undefined || value === null || value === "") return undefined;
+    if (value === true || value === 1) return true;
+    if (value === false || value === 0) return false;
+    const normalized = String(value).trim().toLowerCase();
+    if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
+    return true;
   }
 
   normalizeShadowTLSPluginOpts(pluginOpts) {
