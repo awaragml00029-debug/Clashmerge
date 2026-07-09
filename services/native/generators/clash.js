@@ -126,6 +126,10 @@ class ClashGenerator extends BaseGenerator {
         udp: node.udp !== false,
       };
 
+      if (node.tfo !== undefined && node.tfo !== null) {
+        proxy.tfo = node.tfo;
+      }
+
       if (node.type === "ss") {
         proxy.type = "ss";
         proxy.cipher = node.method;

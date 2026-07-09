@@ -96,6 +96,9 @@ class Hysteria2Parser extends BaseParser {
             if (params.insecure === '1' || params.insecure === 'true') {
                 node.skip_cert_verify = true;
             }
+            if (Object.prototype.hasOwnProperty.call(params, 'tfo')) {
+                node.tfo = this.parseBoolean(params.tfo);
+            }
 
             // 混淆配置
             if (params.obfs) {

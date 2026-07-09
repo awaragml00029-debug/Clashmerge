@@ -75,27 +75,45 @@ class YAMLParser extends BaseParser {
         const type = (proxy.type || '').toLowerCase();
 
         // 根据不同类型解析节点
+        let node = null;
         switch (type) {
             case 'ss':
             case 'shadowsocks':
-                return this.parseShadowsocks(proxy);
+                node = this.parseShadowsocks(proxy);
+                break;
             case 'ssr':
-                return this.parseSSR(proxy);
+                node = this.parseSSR(proxy);
+                break;
             case 'vmess':
-                return this.parseVMess(proxy);
+                node = this.parseVMess(proxy);
+                break;
             case 'trojan':
-                return this.parseTrojan(proxy);
+                node = this.parseTrojan(proxy);
+                break;
             case 'vless':
-                return this.parseVLESS(proxy);
+                node = this.parseVLESS(proxy);
+                break;
             case 'hysteria2':
             case 'hy2':
-                return this.parseHysteria2(proxy);
+                node = this.parseHysteria2(proxy);
+                break;
             case 'anytls':
-                return this.parseAnyTLS(proxy);
+                node = this.parseAnyTLS(proxy);
+                break;
             default:
                 console.warn(`不支持的代理类型: ${type}`);
                 return null;
         }
+
+        return this.applyCommonProxyOptions(proxy, node);
+    }
+
+    applyCommonProxyOptions(proxy, node) {
+        if (!node) return null;
+        if (Object.prototype.hasOwnProperty.call(proxy, 'tfo')) {
+            node.tfo = this.parseBoolean(proxy.tfo);
+        }
+        return node;
     }
 
     /**

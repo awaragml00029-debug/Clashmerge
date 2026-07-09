@@ -41,6 +41,9 @@ class AnyTLSParser extends BaseParser {
             node.fingerprint = params['client-fingerprint'] || params.fingerprint || params.fp || '';
             node.skip_cert_verify = params.insecure === '1' || params.insecure === 'true';
             node.udp = params.udp !== 'false';
+            if (Object.prototype.hasOwnProperty.call(params, 'tfo')) {
+                node.tfo = this.parseBoolean(params.tfo);
+            }
             if (params.alpn) {
                 node.alpn = String(params.alpn).split(',').filter(Boolean);
             }

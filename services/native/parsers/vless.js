@@ -94,6 +94,9 @@ class VLESSParser extends BaseParser {
             if (params.type) {
                 node.network = params.type;
             }
+            if (Object.prototype.hasOwnProperty.call(params, 'tfo')) {
+                node.tfo = this.parseBoolean(params.tfo);
+            }
 
             // WebSocket 配置
             if (node.network === 'ws') {

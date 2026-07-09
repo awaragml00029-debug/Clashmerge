@@ -61,6 +61,9 @@ class VMessParser extends BaseParser {
         node.alterId = parseInt(vmessConfig.aid || vmessConfig.alterId || 0, 10);
         node.cipher = vmessConfig.scy || vmessConfig.cipher || 'auto';
         node.network = vmessConfig.net || vmessConfig.network || 'tcp';
+        if (Object.prototype.hasOwnProperty.call(vmessConfig, 'tfo')) {
+            node.tfo = this.parseBoolean(vmessConfig.tfo);
+        }
 
         node.tls = vmessConfig.tls === 'tls' || vmessConfig.tls === true;
         if (node.tls) {
@@ -174,6 +177,9 @@ class VMessParser extends BaseParser {
 
         const udpFlag = (parsed.searchParams.get('udp') || '').toLowerCase();
         node.udp = !(udpFlag === '0' || udpFlag === 'false');
+        if (parsed.searchParams.has('tfo')) {
+            node.tfo = this.parseBoolean(parsed.searchParams.get('tfo'));
+        }
 
         if (!node.server) {
             this.setLastError('VMess URI 缺少 host');

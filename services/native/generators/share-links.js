@@ -50,9 +50,12 @@ class ShareLinkGenerator extends BaseGenerator {
   convertShadowsocks(node) {
     if (!node.method || !node.password || !node.server || !node.port) return '';
     const userInfo = this.base64UrlEncode(`${node.method}:${node.password}`);
+    const params = new URLSearchParams();
     const plugin = this.serializePlugin(node);
-    const query = plugin ? `/?plugin=${this.urlEncode(plugin)}` : '';
-    return `ss://${userInfo}@${this.formatHostPort(node.server, node.port)}${query}#${this.urlEncode(node.name || 'SS Node')}`;
+    if (plugin) params.set('plugin', plugin);
+    this.appendCommonParams(params, node);
+    const query = params.toString();
+    return `ss://${userInfo}@${this.formatHostPort(node.server, node.port)}${query ? `/?${query}` : ''}#${this.urlEncode(node.name || 'SS Node')}`;
   }
 
   serializePlugin(node) {
@@ -116,6 +119,7 @@ class ShareLinkGenerator extends BaseGenerator {
     const params = new URLSearchParams();
     if (node.sni && node.sni !== node.server) params.set('sni', node.sni);
     if (node.skip_cert_verify) params.set('allowInsecure', '1');
+    this.appendCommonParams(params, node);
     this.appendTransportParams(params, node);
     const query = params.toString();
     return `trojan://${this.urlEncode(node.password)}@${this.formatHostPort(node.server, node.port)}${query ? `?${query}` : ''}#${this.urlEncode(node.name || 'Trojan Node')}`;
@@ -138,6 +142,7 @@ class ShareLinkGenerator extends BaseGenerator {
       tls: node.tls ? 'tls' : '',
       sni: node.sni || '',
     };
+    if (node.tfo !== undefined && node.tfo !== null) config.tfo = node.tfo;
     return `vmess://${this.base64Encode(JSON.stringify(config))}`;
   }
 
@@ -153,6 +158,7 @@ class ShareLinkGenerator extends BaseGenerator {
     if (node.reality_opts?.short_id) params.set('sid', node.reality_opts.short_id);
     if (node.reality_opts?.spider_x) params.set('spx', node.reality_opts.spider_x);
     if (node.skip_cert_verify) params.set('allowInsecure', '1');
+    this.appendCommonParams(params, node);
     this.appendTransportParams(params, node);
     return `vless://${this.urlEncode(node.uuid)}@${this.formatHostPort(node.server, node.port)}?${params.toString()}#${this.urlEncode(node.name || 'VLESS Node')}`;
   }
@@ -167,6 +173,12 @@ class ShareLinkGenerator extends BaseGenerator {
     if (node.ssr_protocol_param) params.set('protoparam', this.base64UrlEncode(node.ssr_protocol_param));
     if (node.ssr_obfs_param) params.set('obfsparam', this.base64UrlEncode(node.ssr_obfs_param));
     return `ssr://${this.base64UrlEncode(`${node.server}:${node.port}:${protocol}:${node.method}:${obfs}:${password}/?${params.toString()}`)}`;
+  }
+
+  appendCommonParams(params, node) {
+    if (node.tfo !== undefined && node.tfo !== null) {
+      params.set('tfo', node.tfo ? '1' : '0');
+    }
   }
 
   appendTransportParams(params, node) {

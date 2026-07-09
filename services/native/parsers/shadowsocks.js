@@ -82,6 +82,9 @@ class ShadowsocksParser extends BaseParser {
                         node.plugin = plugin;
                         node.plugin_opts = plugin_opts;
                     }
+                    if (Object.prototype.hasOwnProperty.call(params, 'tfo')) {
+                        node.tfo = this.parseBoolean(params.tfo);
+                    }
                 }
             } else {
                 // 旧格式: ss://base64(method:password@server:port)

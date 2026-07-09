@@ -51,7 +51,10 @@ class SSGenerator extends BaseGenerator {
             const serverInfo = `${node.server}:${node.port}`;
             const name = this.urlEncode(node.name || 'SS Node');
             const plugin = this.serializePlugin(node);
-            const query = plugin ? `/?plugin=${this.urlEncode(plugin)}` : '';
+            const queryParams = [];
+            if (plugin) queryParams.push(`plugin=${this.urlEncode(plugin)}`);
+            if (node.tfo !== undefined && node.tfo !== null) queryParams.push(`tfo=${node.tfo ? '1' : '0'}`);
+            const query = queryParams.length > 0 ? `/?${queryParams.join('&')}` : '';
 
             return `ss://${encodedUserInfo}@${serverInfo}${query}#${name}`;
         } catch (error) {
