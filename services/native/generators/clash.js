@@ -249,6 +249,13 @@ class ClashGenerator extends BaseGenerator {
           proxy["grpc-opts"] = {
             "grpc-service-name": node.grpc_opts.service_name || "",
           };
+        } else if (node.network === "h2" || node.network === "http") {
+          proxy["h2-opts"] = {
+            host: node.h2_opts.host || [],
+            path: node.h2_opts.path || "/",
+          };
+        } else if (node.network === "xhttp") {
+          proxy["xhttp-opts"] = this.normalizeXHTTPOpts(node.xhttp_opts || {});
         }
 
         if (node.tls) {
@@ -356,6 +363,16 @@ class ClashGenerator extends BaseGenerator {
     if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
     if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
     return true;
+  }
+
+  normalizeXHTTPOpts(xhttpOpts) {
+    if (!xhttpOpts || typeof xhttpOpts !== "object") return {};
+    const result = {};
+    for (const [key, value] of Object.entries(xhttpOpts)) {
+      if (value === undefined || value === null || value === "") continue;
+      result[key] = value;
+    }
+    return result;
   }
 
   normalizeShadowTLSPluginOpts(pluginOpts) {

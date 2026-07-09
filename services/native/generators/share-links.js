@@ -197,7 +197,49 @@ class ShareLinkGenerator extends BaseGenerator {
       const host = Array.isArray(node.h2_opts?.host) ? node.h2_opts.host.join(',') : node.h2_opts?.host || '';
       if (path) params.set('path', path);
       if (host) params.set('host', host);
+    } else if (network === 'xhttp') {
+      const opts = node.xhttp_opts || {};
+      if (opts.path) params.set('path', opts.path);
+      if (opts.host) params.set('host', opts.host);
+      if (opts.mode) params.set('mode', opts.mode);
+      const extra = this.buildXHTTPExtra(opts);
+      if (Object.keys(extra).length > 0) params.set('extra', JSON.stringify(extra));
     }
+  }
+
+  buildXHTTPExtra(opts) {
+    const extra = {};
+    const mappings = {
+      headers: 'headers',
+      'no-grpc-header': 'noGRPCHeader',
+      'x-padding-bytes': 'xPaddingBytes',
+      'x-padding-obfs-mode': 'xPaddingObfsMode',
+      'x-padding-key': 'xPaddingKey',
+      'x-padding-header': 'xPaddingHeader',
+      'x-padding-placement': 'xPaddingPlacement',
+      'x-padding-method': 'xPaddingMethod',
+      'uplink-http-method': 'uplinkHTTPMethod',
+      'session-placement': 'sessionPlacement',
+      'session-key': 'sessionKey',
+      'session-table': 'sessionTable',
+      'session-length': 'sessionLength',
+      'seq-placement': 'seqPlacement',
+      'seq-key': 'seqKey',
+      'uplink-data-placement': 'uplinkDataPlacement',
+      'uplink-data-key': 'uplinkDataKey',
+      'uplink-chunk-size': 'uplinkChunkSize',
+      'sc-max-each-post-bytes': 'scMaxEachPostBytes',
+      'sc-min-posts-interval-ms': 'scMinPostsIntervalMs',
+      'reuse-settings': 'xmux',
+      'download-settings': 'downloadSettings',
+    };
+
+    for (const [sourceKey, targetKey] of Object.entries(mappings)) {
+      const value = opts[sourceKey];
+      if (value === undefined || value === null || value === '') continue;
+      extra[targetKey] = value;
+    }
+    return extra;
   }
 
   getTransportHost(node) {

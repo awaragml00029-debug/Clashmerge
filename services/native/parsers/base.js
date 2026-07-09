@@ -86,6 +86,8 @@ class BaseParser {
                 host: [],
                 path: ''
             },
+            // XHTTP 相关
+            xhttp_opts: {},
             // VMess 特有
             alterId: 0,
             cipher: 'auto',

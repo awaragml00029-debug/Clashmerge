@@ -125,10 +125,89 @@ class VLESSParser extends BaseParser {
                 }
             }
 
+            // XHTTP 配置
+            if (node.network === 'xhttp') {
+                node.xhttp_opts = this.parseXHTTPOpts(params);
+            }
+
             return this.validate(node) ? node : null;
         } catch (error) {
             console.error('解析 VLESS 节点失败:', error.message);
             return null;
+        }
+    }
+
+    parseXHTTPOpts(params) {
+        const result = {};
+        const directKeys = [
+            'path',
+            'host',
+            'mode',
+            'no-grpc-header',
+            'x-padding-bytes',
+            'x-padding-obfs-mode',
+            'x-padding-key',
+            'x-padding-header',
+            'x-padding-placement',
+            'x-padding-method',
+            'uplink-http-method',
+            'session-placement',
+            'session-key',
+            'session-table',
+            'session-length',
+            'seq-placement',
+            'seq-key',
+            'uplink-data-placement',
+            'uplink-data-key',
+            'uplink-chunk-size',
+            'sc-max-each-post-bytes',
+            'sc-min-posts-interval-ms',
+        ];
+
+        for (const key of directKeys) {
+            if (params[key] !== undefined && params[key] !== '') {
+                result[key] = params[key];
+            }
+        }
+
+        if (params.extra) {
+            const extra = this.parseXHTTPExtra(params.extra);
+            if (extra.headers && typeof extra.headers === 'object') result.headers = extra.headers;
+            if (extra['no-grpc-header'] !== undefined) result['no-grpc-header'] = extra['no-grpc-header'];
+            if (extra.noGRPCHeader !== undefined) result['no-grpc-header'] = extra.noGRPCHeader;
+            if (extra.xPaddingBytes !== undefined) result['x-padding-bytes'] = extra.xPaddingBytes;
+            if (extra.xPaddingObfsMode !== undefined) result['x-padding-obfs-mode'] = extra.xPaddingObfsMode;
+            if (extra.xPaddingKey !== undefined) result['x-padding-key'] = extra.xPaddingKey;
+            if (extra.xPaddingHeader !== undefined) result['x-padding-header'] = extra.xPaddingHeader;
+            if (extra.xPaddingPlacement !== undefined) result['x-padding-placement'] = extra.xPaddingPlacement;
+            if (extra.xPaddingMethod !== undefined) result['x-padding-method'] = extra.xPaddingMethod;
+            if (extra.uplinkHTTPMethod !== undefined) result['uplink-http-method'] = extra.uplinkHTTPMethod;
+            if (extra.sessionPlacement !== undefined) result['session-placement'] = extra.sessionPlacement;
+            if (extra.sessionKey !== undefined) result['session-key'] = extra.sessionKey;
+            if (extra.sessionTable !== undefined) result['session-table'] = extra.sessionTable;
+            if (extra.sessionLength !== undefined) result['session-length'] = extra.sessionLength;
+            if (extra.seqPlacement !== undefined) result['seq-placement'] = extra.seqPlacement;
+            if (extra.seqKey !== undefined) result['seq-key'] = extra.seqKey;
+            if (extra.uplinkDataPlacement !== undefined) result['uplink-data-placement'] = extra.uplinkDataPlacement;
+            if (extra.uplinkDataKey !== undefined) result['uplink-data-key'] = extra.uplinkDataKey;
+            if (extra.uplinkChunkSize !== undefined) result['uplink-chunk-size'] = extra.uplinkChunkSize;
+            if (extra.scMaxEachPostBytes !== undefined) result['sc-max-each-post-bytes'] = extra.scMaxEachPostBytes;
+            if (extra.scMinPostsIntervalMs !== undefined) result['sc-min-posts-interval-ms'] = extra.scMinPostsIntervalMs;
+            if (extra.reuseSettings !== undefined) result['reuse-settings'] = extra.reuseSettings;
+            if (extra.downloadSettings !== undefined) result['download-settings'] = extra.downloadSettings;
+            if (extra.xmux !== undefined && result['reuse-settings'] === undefined) result['reuse-settings'] = extra.xmux;
+        }
+
+        return result;
+    }
+
+    parseXHTTPExtra(value) {
+        if (!value) return {};
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+            return {};
         }
     }
 

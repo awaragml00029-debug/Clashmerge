@@ -291,15 +291,27 @@ class YAMLParser extends BaseParser {
                 node.ws_opts.headers = wsOpts.headers;
             }
         } else if (node.network === 'h2' || node.network === 'http') {
-            const h2Opts = proxy['h2-opts'] || {};
+            const h2Opts = proxy['h2-opts'] || proxy['http-opts'] || {};
             node.h2_opts.path = h2Opts.path || '/';
             node.h2_opts.host = h2Opts.host || [];
         } else if (node.network === 'grpc') {
             const grpcOpts = proxy['grpc-opts'] || {};
             node.grpc_opts.service_name = grpcOpts['grpc-service-name'] || '';
+        } else if (node.network === 'xhttp') {
+            node.xhttp_opts = this.normalizeXHTTPOpts(proxy['xhttp-opts'] || {});
         }
 
         return node;
+    }
+
+    normalizeXHTTPOpts(xhttpOpts) {
+        if (!xhttpOpts || typeof xhttpOpts !== 'object') return {};
+        const result = {};
+        for (const [key, value] of Object.entries(xhttpOpts)) {
+            if (value === undefined || value === null || value === '') continue;
+            result[key] = value;
+        }
+        return result;
     }
 
     /**
