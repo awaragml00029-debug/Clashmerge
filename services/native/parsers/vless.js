@@ -102,6 +102,11 @@ class VLESSParser extends BaseParser {
             if (node.network === 'ws') {
                 if (params.path) {
                     node.ws_opts.path = params.path;
+                    this.extractWSEarlyData(node.ws_opts);
+                }
+                if (params.ed && !node.ws_opts['max-early-data']) {
+                    node.ws_opts['max-early-data'] = parseInt(params.ed, 10);
+                    node.ws_opts['early-data-header-name'] = 'Sec-WebSocket-Protocol';
                 }
                 if (params.host) {
                     node.ws_opts.headers = { Host: params.host };
@@ -134,6 +139,22 @@ class VLESSParser extends BaseParser {
         } catch (error) {
             console.error('解析 VLESS 节点失败:', error.message);
             return null;
+        }
+    }
+
+    extractWSEarlyData(wsOpts) {
+        const path = String(wsOpts.path || '');
+        if (!path.includes('ed=')) return;
+        try {
+            const parsed = new URL(path, 'http://ws.local');
+            const earlyData = parsed.searchParams.get('ed');
+            if (!/^\d+$/.test(String(earlyData || ''))) return;
+            parsed.searchParams.delete('ed');
+            wsOpts.path = `${parsed.pathname}${parsed.search}${parsed.hash}` || '/';
+            wsOpts['max-early-data'] = parseInt(earlyData, 10);
+            wsOpts['early-data-header-name'] = 'Sec-WebSocket-Protocol';
+        } catch {
+            // 保留原始 path，避免误改非标准路径。
         }
     }
 

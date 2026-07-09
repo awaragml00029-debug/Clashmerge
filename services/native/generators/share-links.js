@@ -185,8 +185,8 @@ class ShareLinkGenerator extends BaseGenerator {
     const network = node.network || 'tcp';
     if (network && network !== 'tcp') params.set('type', network);
     if (network === 'ws') {
-      const path = node.ws_opts?.path || '';
-      const host = this.getHeaderHost(node.ws_opts?.headers);
+      const path = this.buildWSPath(node.ws_opts || {});
+      const host = this.getHeaderHost(node.ws_opts?.headers) || node.sni || node.server;
       if (path) params.set('path', path);
       if (host) params.set('host', host);
     } else if (network === 'grpc') {
@@ -204,6 +204,21 @@ class ShareLinkGenerator extends BaseGenerator {
       if (opts.mode) params.set('mode', opts.mode);
       const extra = this.buildXHTTPExtra(opts);
       if (Object.keys(extra).length > 0) params.set('extra', JSON.stringify(extra));
+    }
+  }
+
+  buildWSPath(wsOpts) {
+    const path = wsOpts.path || '';
+    const earlyData = wsOpts['max-early-data'];
+    if (earlyData === undefined || earlyData === null || earlyData === '') return path;
+
+    try {
+      const parsed = new URL(path || '/', 'http://ws.local');
+      parsed.searchParams.set('ed', String(earlyData));
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || '/';
+    } catch {
+      const separator = path.includes('?') ? '&' : '?';
+      return `${path || '/'}${separator}ed=${this.urlEncode(earlyData)}`;
     }
   }
 
@@ -243,7 +258,7 @@ class ShareLinkGenerator extends BaseGenerator {
   }
 
   getTransportHost(node) {
-    if (node.network === 'ws') return this.getHeaderHost(node.ws_opts?.headers);
+    if (node.network === 'ws') return this.getHeaderHost(node.ws_opts?.headers) || node.sni || node.server;
     if (node.network === 'h2' || node.network === 'http') {
       return Array.isArray(node.h2_opts?.host) ? node.h2_opts.host.join(',') : node.h2_opts?.host || '';
     }

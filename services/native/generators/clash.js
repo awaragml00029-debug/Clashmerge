@@ -190,10 +190,7 @@ class ClashGenerator extends BaseGenerator {
         proxy.network = node.network || "tcp";
 
         if (node.network === "ws") {
-          proxy["ws-opts"] = {
-            path: node.ws_opts.path || "/",
-            headers: node.ws_opts.headers || {},
-          };
+          proxy["ws-opts"] = this.normalizeWSOpts(node.ws_opts || {}, node.sni || node.server);
         } else if (node.network === "h2") {
           proxy["h2-opts"] = {
             host: node.h2_opts.host || [],
@@ -219,10 +216,7 @@ class ClashGenerator extends BaseGenerator {
 
         if (node.network === "ws") {
           proxy.network = "ws";
-          proxy["ws-opts"] = {
-            path: node.ws_opts.path || "/",
-            headers: node.ws_opts.headers || {},
-          };
+          proxy["ws-opts"] = this.normalizeWSOpts(node.ws_opts || {}, node.sni || node.server);
         } else if (node.network === "grpc") {
           proxy.network = "grpc";
           proxy["grpc-opts"] = {
@@ -241,10 +235,7 @@ class ClashGenerator extends BaseGenerator {
         }
 
         if (node.network === "ws") {
-          proxy["ws-opts"] = {
-            path: node.ws_opts.path || "/",
-            headers: node.ws_opts.headers || {},
-          };
+          proxy["ws-opts"] = this.normalizeWSOpts(node.ws_opts || {}, node.sni || node.server);
         } else if (node.network === "grpc") {
           proxy["grpc-opts"] = {
             "grpc-service-name": node.grpc_opts.service_name || "",
@@ -363,6 +354,24 @@ class ClashGenerator extends BaseGenerator {
     if (["1", "true", "yes", "y", "on"].includes(normalized)) return true;
     if (["0", "false", "no", "n", "off"].includes(normalized)) return false;
     return true;
+  }
+
+  normalizeWSOpts(wsOpts, fallbackHost = "") {
+    const result = { path: wsOpts.path || "/" };
+    const sourceHeaders = wsOpts.headers && typeof wsOpts.headers === "object" ? wsOpts.headers : {};
+    const headers = { ...sourceHeaders };
+    const hasHost = Boolean(headers.Host || headers.host);
+    if (!hasHost && fallbackHost) {
+      headers.Host = fallbackHost;
+    }
+    if (Object.keys(headers).length > 0) {
+      result.headers = headers;
+    }
+    if (wsOpts["max-early-data"] !== undefined && wsOpts["max-early-data"] !== null && wsOpts["max-early-data"] !== "") {
+      result["max-early-data"] = parseInt(wsOpts["max-early-data"], 10);
+      result["early-data-header-name"] = wsOpts["early-data-header-name"] || "Sec-WebSocket-Protocol";
+    }
+    return result;
   }
 
   normalizeXHTTPOpts(xhttpOpts) {

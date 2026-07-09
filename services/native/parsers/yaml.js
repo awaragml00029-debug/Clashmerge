@@ -196,11 +196,7 @@ class YAMLParser extends BaseParser {
 
         // 传输层配置
         if (node.network === 'ws') {
-            node.ws_opts.path = proxy['ws-opts']?.path || proxy['ws-path'] || '/';
-            const headers = proxy['ws-opts']?.headers || {};
-            if (proxy['ws-headers'] || headers.Host) {
-                node.ws_opts.headers = proxy['ws-headers'] || headers;
-            }
+            node.ws_opts = this.normalizeWSOpts(proxy['ws-opts'] || { path: proxy['ws-path'], headers: proxy['ws-headers'] });
         } else if (node.network === 'h2' || node.network === 'http') {
             const h2Opts = proxy['h2-opts'] || {};
             node.h2_opts.path = h2Opts.path || '/';
@@ -238,11 +234,7 @@ class YAMLParser extends BaseParser {
 
         // WebSocket 配置
         if (node.network === 'ws') {
-            const wsOpts = proxy['ws-opts'] || {};
-            node.ws_opts.path = wsOpts.path || '/';
-            if (wsOpts.headers) {
-                node.ws_opts.headers = wsOpts.headers;
-            }
+            node.ws_opts = this.normalizeWSOpts(proxy['ws-opts'] || {});
         } else if (node.network === 'grpc') {
             const grpcOpts = proxy['grpc-opts'] || {};
             node.grpc_opts.service_name = grpcOpts['grpc-service-name'] || '';
@@ -285,11 +277,7 @@ class YAMLParser extends BaseParser {
 
         // 传输层配置
         if (node.network === 'ws') {
-            const wsOpts = proxy['ws-opts'] || {};
-            node.ws_opts.path = wsOpts.path || '/';
-            if (wsOpts.headers) {
-                node.ws_opts.headers = wsOpts.headers;
-            }
+            node.ws_opts = this.normalizeWSOpts(proxy['ws-opts'] || {});
         } else if (node.network === 'h2' || node.network === 'http') {
             const h2Opts = proxy['h2-opts'] || proxy['http-opts'] || {};
             node.h2_opts.path = h2Opts.path || '/';
@@ -302,6 +290,36 @@ class YAMLParser extends BaseParser {
         }
 
         return node;
+    }
+
+    normalizeWSOpts(wsOpts) {
+        if (!wsOpts || typeof wsOpts !== 'object') return { path: '/' };
+        const result = { path: wsOpts.path || '/' };
+        if (wsOpts.headers && typeof wsOpts.headers === 'object') {
+            result.headers = wsOpts.headers;
+        }
+        if (wsOpts['max-early-data'] !== undefined && wsOpts['max-early-data'] !== null && wsOpts['max-early-data'] !== '') {
+            result['max-early-data'] = parseInt(wsOpts['max-early-data'], 10);
+            result['early-data-header-name'] = wsOpts['early-data-header-name'] || 'Sec-WebSocket-Protocol';
+        }
+        this.extractWSEarlyData(result);
+        return result;
+    }
+
+    extractWSEarlyData(wsOpts) {
+        const path = String(wsOpts.path || '');
+        if (!path.includes('ed=')) return;
+        try {
+            const parsed = new URL(path, 'http://ws.local');
+            const earlyData = parsed.searchParams.get('ed');
+            if (!/^\d+$/.test(String(earlyData || ''))) return;
+            parsed.searchParams.delete('ed');
+            wsOpts.path = `${parsed.pathname}${parsed.search}${parsed.hash}` || '/';
+            wsOpts['max-early-data'] = parseInt(earlyData, 10);
+            wsOpts['early-data-header-name'] = wsOpts['early-data-header-name'] || 'Sec-WebSocket-Protocol';
+        } catch {
+            // 保留原始 path，避免误改非标准路径。
+        }
     }
 
     normalizeXHTTPOpts(xhttpOpts) {
