@@ -129,7 +129,7 @@ class YAMLParser extends BaseParser {
         node.port = parseInt(proxy.port, 10);
         node.password = proxy.password;
         node.method = proxy.cipher || proxy.method || 'aes-256-gcm';
-        node.udp = proxy.udp !== false;
+        node.udp = this.parseBoolean(proxy.udp) === true;
         if (Object.prototype.hasOwnProperty.call(proxy, 'udp-over-tcp')) {
             node.udp_over_tcp = proxy['udp-over-tcp'] === true || proxy['udp-over-tcp'] === 'true';
         }
@@ -163,7 +163,7 @@ class YAMLParser extends BaseParser {
         node.ssr_protocol_param = proxy['protocol-param'] || proxy.protocol_param || '';
         node.ssr_obfs = proxy.obfs || 'plain';
         node.ssr_obfs_param = proxy['obfs-param'] || proxy.obfs_param || '';
-        node.udp = proxy.udp !== false;
+        node.udp = this.parseBoolean(proxy.udp) === true;
         return node;
     }
 
@@ -182,7 +182,7 @@ class YAMLParser extends BaseParser {
         node.alterId = parseInt(proxy.alterId || proxy['alter-id'] || 0, 10);
         node.cipher = proxy.cipher || 'auto';
         node.network = proxy.network || 'tcp';
-        node.udp = proxy.udp !== false;
+        node.udp = this.parseBoolean(proxy.udp) === true;
 
         // TLS 配置
         node.tls = proxy.tls === true || proxy.tls === 'true';
@@ -226,7 +226,7 @@ class YAMLParser extends BaseParser {
         node.port = parseInt(proxy.port, 10);
         node.password = proxy.password;
         node.network = proxy.network || 'tcp';
-        node.udp = proxy.udp !== false;
+        node.udp = this.parseBoolean(proxy.udp) === true;
 
         // TLS 配置（Trojan 默认使用 TLS）
         node.tls = true;
@@ -265,7 +265,7 @@ class YAMLParser extends BaseParser {
         node.uuid = proxy.uuid;
         node.flow = proxy.flow || '';
         node.network = proxy.network || 'tcp';
-        node.udp = proxy.udp !== false;
+        node.udp = this.parseBoolean(proxy.udp) === true;
 
         // TLS / Reality 配置
         const realityOpts = proxy['reality-opts'] || {};
@@ -314,7 +314,7 @@ class YAMLParser extends BaseParser {
         node.server = proxy.server;
         node.port = parseInt(proxy.port, 10);
         node.password = proxy.password || '';
-        node.udp = proxy.udp !== false;
+        node.udp = this.parseBoolean(proxy.udp) === true;
 
         // TLS 配置
         node.tls = true;
@@ -350,7 +350,7 @@ class YAMLParser extends BaseParser {
         node.sni = proxy.sni || proxy.servername || proxy.server;
         node.fingerprint = proxy['client-fingerprint'] || proxy.fingerprint || '';
         node.skip_cert_verify = proxy['skip-cert-verify'] === true;
-        node.udp = proxy.udp !== false;
+        node.udp = this.parseBoolean(proxy.udp) === true;
         if (proxy.alpn) {
             node.alpn = Array.isArray(proxy.alpn) ? proxy.alpn : [proxy.alpn];
         }

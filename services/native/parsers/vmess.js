@@ -94,7 +94,7 @@ class VMessParser extends BaseParser {
                                           vmessConfig.serviceName || '';
         }
 
-        node.udp = vmessConfig.udp !== false;
+        node.udp = this.parseBoolean(vmessConfig.udp) === true;
 
         if (!node.server) {
             this.setLastError('VMess 缺少服务器地址(add/address)');
@@ -175,8 +175,7 @@ class VMessParser extends BaseParser {
                                           '';
         }
 
-        const udpFlag = (parsed.searchParams.get('udp') || '').toLowerCase();
-        node.udp = !(udpFlag === '0' || udpFlag === 'false');
+        node.udp = this.parseBoolean(parsed.searchParams.get('udp')) === true;
         if (parsed.searchParams.has('tfo')) {
             node.tfo = this.parseBoolean(parsed.searchParams.get('tfo'));
         }

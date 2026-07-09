@@ -123,7 +123,7 @@ class ClashGenerator extends BaseGenerator {
         name: node.name,
         server: node.server,
         port: node.port,
-        udp: node.udp !== false,
+        udp: node.udp === true,
       };
 
       if (node.tfo !== undefined && node.tfo !== null) {

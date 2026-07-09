@@ -59,7 +59,7 @@ class BaseParser {
             udp_over_tcp_version: undefined,
             ip_version: '',
             smux: undefined,
-            tfo: undefined,      // TCP Fast Open
+            tfo: false,         // TCP Fast Open
             network: 'tcp',     // 传输协议 (tcp/ws/grpc/h2)
             tls: false,         // 是否启用TLS
             security: '',       // tls/reality/none
@@ -104,7 +104,7 @@ class BaseParser {
             ssr_obfs_param: '',
             group: '',
             // 其他
-            udp: true
+            udp: false
         };
     }
 
@@ -172,7 +172,7 @@ class BaseParser {
         const normalized = String(value).trim().toLowerCase();
         if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
         if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
-        return true;
+        return false;
     }
 }
 

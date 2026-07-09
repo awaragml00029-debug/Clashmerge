@@ -39,7 +39,7 @@ class SSRParser extends BaseParser {
             node.ssr_obfs_param = this.decodeSsrParam(params.obfsparam || '');
             node.name = this.decodeSsrParam(params.remarks || '') || `${server}:${port}`;
             node.group = this.decodeSsrParam(params.group || '');
-            node.udp = true;
+            node.udp = false;
             node.raw = uri;
 
             if (!this.validate(node)) {
