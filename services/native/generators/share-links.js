@@ -38,6 +38,8 @@ class ShareLinkGenerator extends BaseGenerator {
         return this.convertVMess(node);
       case 'vless':
         return this.convertVLESS(node);
+      case 'anytls':
+        return this.convertAnyTLS(node);
       case 'ssr':
         return this.convertSSR(node);
       default:
@@ -161,6 +163,19 @@ class ShareLinkGenerator extends BaseGenerator {
     this.appendCommonParams(params, node);
     this.appendTransportParams(params, node);
     return `vless://${this.urlEncode(node.uuid)}@${this.formatHostPort(node.server, node.port)}?${params.toString()}#${this.urlEncode(node.name || 'VLESS Node')}`;
+  }
+
+  convertAnyTLS(node) {
+    if (!node.password || !node.server || !node.port) return '';
+    const params = new URLSearchParams();
+    if (node.sni && node.sni !== node.server) params.set('sni', node.sni);
+    if (node.fingerprint) params.set('client-fingerprint', node.fingerprint);
+    if (node.skip_cert_verify) params.set('insecure', '1');
+    if (Array.isArray(node.alpn) && node.alpn.length > 0) params.set('alpn', node.alpn.join(','));
+    if (node.udp) params.set('udp', '1');
+    this.appendCommonParams(params, node);
+    const query = params.toString();
+    return `anytls://${this.urlEncode(node.password)}@${this.formatHostPort(node.server, node.port)}${query ? `?${query}` : ''}#${this.urlEncode(node.name || 'AnyTLS Node')}`;
   }
 
   convertSSR(node) {

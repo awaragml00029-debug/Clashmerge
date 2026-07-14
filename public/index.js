@@ -1186,9 +1186,9 @@ class MihomoConverter {
     const input = document.getElementById("mihomoConverterInput");
     const output = document.getElementById("mihomoConverterOutput");
     const summary = document.getElementById("mihomoConverterSummary");
-    const content = input.value.trim();
+    const content = input.value.trimEnd();
 
-    if (!content) {
+    if (!content.trim()) {
       createGlobalToast("请先粘贴 Mihomo 节点 YAML。", "error");
       return;
     }

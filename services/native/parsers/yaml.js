@@ -12,9 +12,54 @@ class YAMLParser extends BaseParser {
             const config = yaml.load(content);
             return config && typeof config === 'object' ? config : null;
         } catch (error) {
+            const normalized = this.normalizeInlineSequenceIndentation(content);
+            if (normalized !== content) {
+                try {
+                    const config = yaml.load(normalized);
+                    return config && typeof config === 'object' ? config : null;
+                } catch (retryError) {
+                    console.error('解析 YAML 配置失败:', retryError.message);
+                    return null;
+                }
+            }
             console.error('解析 YAML 配置失败:', error.message);
             return null;
         }
+    }
+
+    normalizeInlineSequenceIndentation(content) {
+        const lines = String(content || '').split('\n');
+        const normalized = [...lines];
+        let sequenceIndent = null;
+        let changed = false;
+
+        for (let index = 0; index < lines.length; index += 1) {
+            const line = lines[index];
+            if (!line.trim()) continue;
+
+            const indent = line.match(/^\s*/)[0].length;
+            const sequenceMatch = line.match(/^(\s*)-\s+\S/);
+            if (sequenceMatch) {
+                const matchedIndent = sequenceMatch[1].length;
+                if (sequenceIndent === null || matchedIndent <= sequenceIndent) {
+                    sequenceIndent = matchedIndent;
+                    continue;
+                }
+            }
+
+            if (sequenceIndent === null) continue;
+            if (indent <= sequenceIndent) {
+                sequenceIndent = null;
+                continue;
+            }
+
+            if (indent >= sequenceIndent + 4) {
+                normalized[index] = line.slice(0, sequenceIndent + 2) + line.slice(sequenceIndent + 4);
+                changed = true;
+            }
+        }
+
+        return changed ? normalized.join('\n') : content;
     }
 
     /**
