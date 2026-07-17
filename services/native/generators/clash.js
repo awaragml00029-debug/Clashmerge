@@ -357,8 +357,9 @@ class ClashGenerator extends BaseGenerator {
   }
 
   normalizeWSOpts(wsOpts, fallbackHost = "") {
-    const result = { path: wsOpts.path || "/" };
-    const sourceHeaders = wsOpts.headers && typeof wsOpts.headers === "object" ? wsOpts.headers : {};
+    const normalizedWSOpts = this.normalizeWSEarlyData(wsOpts || {});
+    const result = { path: normalizedWSOpts.path || "/" };
+    const sourceHeaders = normalizedWSOpts.headers && typeof normalizedWSOpts.headers === "object" ? normalizedWSOpts.headers : {};
     const headers = { ...sourceHeaders };
     const hasHost = Boolean(headers.Host || headers.host);
     if (!hasHost && fallbackHost) {
@@ -367,11 +368,33 @@ class ClashGenerator extends BaseGenerator {
     if (Object.keys(headers).length > 0) {
       result.headers = headers;
     }
-    const maxEarlyData = wsOpts["max-early-data"] !== undefined && wsOpts["max-early-data"] !== null && wsOpts["max-early-data"] !== ""
-      ? parseInt(wsOpts["max-early-data"], 10)
+    const maxEarlyData = normalizedWSOpts["max-early-data"] !== undefined && normalizedWSOpts["max-early-data"] !== null && normalizedWSOpts["max-early-data"] !== ""
+      ? parseInt(normalizedWSOpts["max-early-data"], 10)
       : 2560;
     result["max-early-data"] = Number.isNaN(maxEarlyData) ? 2560 : maxEarlyData;
-    result["early-data-header-name"] = wsOpts["early-data-header-name"] || "Sec-WebSocket-Protocol";
+    result["early-data-header-name"] = normalizedWSOpts["early-data-header-name"] || "Sec-WebSocket-Protocol";
+    return result;
+  }
+
+  normalizeWSEarlyData(wsOpts) {
+    const result = { ...wsOpts };
+    const path = String(result.path || "");
+    if (!path.includes("ed=")) return result;
+
+    try {
+      const parsed = new URL(path || "/", "http://ws.local");
+      const earlyData = parsed.searchParams.get("ed");
+      if (!/^\d+$/.test(String(earlyData || ""))) return result;
+      parsed.searchParams.delete("ed");
+      result.path = `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+      if (result["max-early-data"] === undefined || result["max-early-data"] === null || result["max-early-data"] === "") {
+        result["max-early-data"] = parseInt(earlyData, 10);
+      }
+      result["early-data-header-name"] = result["early-data-header-name"] || "Sec-WebSocket-Protocol";
+    } catch {
+      // 保留原始 path，避免误改非标准路径。
+    }
+
     return result;
   }
 
