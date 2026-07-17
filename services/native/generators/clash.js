@@ -327,7 +327,12 @@ class ClashGenerator extends BaseGenerator {
     const result = {};
     const mode = this.normalizeV2RayPluginMode(pluginOpts.mode || pluginOpts.obfs || pluginOpts.transport);
     const host = String(pluginOpts.host || pluginOpts["obfs-host"] || pluginOpts.obfsHost || "").trim();
-    const path = this.normalizeWSEarlyData({ path: String(pluginOpts.path || "").trim() }).path || "";
+    const wsPluginOpts = this.normalizeWSEarlyData({
+      path: String(pluginOpts.path || "").trim(),
+      "max-early-data": pluginOpts["max-early-data"] ?? pluginOpts.maxEarlyData ?? pluginOpts.ed,
+      "early-data-header-name": pluginOpts["early-data-header-name"] || pluginOpts.earlyDataHeaderName,
+    });
+    const path = wsPluginOpts.path || "";
     const tls = this.parsePluginBoolean(pluginOpts.tls);
     const mux = this.parsePluginBoolean(pluginOpts.mux);
 
@@ -335,6 +340,13 @@ class ClashGenerator extends BaseGenerator {
     if (tls !== undefined) result.tls = tls;
     if (host) result.host = host;
     if (path) result.path = path;
+    if (result.mode === "websocket") {
+      const maxEarlyData = wsPluginOpts["max-early-data"] !== undefined && wsPluginOpts["max-early-data"] !== null && wsPluginOpts["max-early-data"] !== ""
+        ? parseInt(wsPluginOpts["max-early-data"], 10)
+        : 2560;
+      result["max-early-data"] = Number.isNaN(maxEarlyData) ? 2560 : maxEarlyData;
+      result["early-data-header-name"] = wsPluginOpts["early-data-header-name"] || "Sec-WebSocket-Protocol";
+    }
     if (mux !== undefined) result.mux = mux;
     return result;
   }
