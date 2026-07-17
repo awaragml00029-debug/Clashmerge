@@ -327,7 +327,7 @@ class ClashGenerator extends BaseGenerator {
     const result = {};
     const mode = this.normalizeV2RayPluginMode(pluginOpts.mode || pluginOpts.obfs || pluginOpts.transport);
     const host = String(pluginOpts.host || pluginOpts["obfs-host"] || pluginOpts.obfsHost || "").trim();
-    const path = String(pluginOpts.path || "").trim();
+    const path = this.normalizeWSEarlyData({ path: String(pluginOpts.path || "").trim() }).path || "";
     const tls = this.parsePluginBoolean(pluginOpts.tls);
     const mux = this.parsePluginBoolean(pluginOpts.mux);
 
