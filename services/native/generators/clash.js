@@ -367,10 +367,11 @@ class ClashGenerator extends BaseGenerator {
     if (Object.keys(headers).length > 0) {
       result.headers = headers;
     }
-    if (wsOpts["max-early-data"] !== undefined && wsOpts["max-early-data"] !== null && wsOpts["max-early-data"] !== "") {
-      result["max-early-data"] = parseInt(wsOpts["max-early-data"], 10);
-      result["early-data-header-name"] = wsOpts["early-data-header-name"] || "Sec-WebSocket-Protocol";
-    }
+    const maxEarlyData = wsOpts["max-early-data"] !== undefined && wsOpts["max-early-data"] !== null && wsOpts["max-early-data"] !== ""
+      ? parseInt(wsOpts["max-early-data"], 10)
+      : 2560;
+    result["max-early-data"] = Number.isNaN(maxEarlyData) ? 2560 : maxEarlyData;
+    result["early-data-header-name"] = wsOpts["early-data-header-name"] || "Sec-WebSocket-Protocol";
     return result;
   }
 
